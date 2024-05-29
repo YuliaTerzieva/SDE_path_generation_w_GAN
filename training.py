@@ -10,9 +10,9 @@ torch.set_default_device(my_device)
 S_0 = 1
 mu = 0.05
 sigma = 0.2
-n_steps = 1000
-paths = 100
-T = 50
+n_steps = 100
+paths = 1000
+T = 5
 dt = 0.05
 
 ### Generating the SDE paths ###
@@ -42,7 +42,7 @@ c_dt = torch.full((1, paths), dt).type(torch.FloatTensor).to(device=torch.device
 
 D_losses = []
 G_losses = []
-for epoch in range(epochs):
+for epoch in range(200):
     for i in range(0, number_data_points, batch_size):
         ### training the discriminator ###
         discriminator.train()
@@ -59,7 +59,7 @@ for epoch in range(epochs):
     
             # Fake data #
             x_random = torch.randn(paths, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-            
+
             x_fake = generator.forward(x_random, (c_previous, c_dt)).view(1, -1)
             D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt))
             D_loss_fake = loss_function(D_pred_fake, torch.zeros(D_pred_fake.size(0), 1))

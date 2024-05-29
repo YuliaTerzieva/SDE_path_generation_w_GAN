@@ -47,11 +47,11 @@ def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual = None, my_d
     G_paths[0, :] = S_0
     for step_inx in range(n_steps-1):
         if actual == None :
-            print("Step", step_inx)
-            print(G_paths[step_inx])
-            print(gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt)))
-            print(torch.mul(G_paths[step_inx].view(-1, 1), gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt))))
-            G_paths[step_inx+1] = torch.squeeze(torch.mul(G_paths[step_inx].view(-1, 1), gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt))))
+            # print("Step", step_inx)
+            # print(G_paths[step_inx])
+            # print(gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt)))
+            # print(torch.mul(G_paths[step_inx].view(-1, 1), gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt))))
+            G_paths[step_inx+1] = torch.squeeze(torch.mul(G_paths[step_inx].view(-1, 1), torch.exp(gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt)))))
         else :
             # this should be tested and fixed
             #G_paths[step_inx+1] = G_paths[step_inx] * gen_model(Z[step_inx], (actual[step_inx], c_dt)) 
@@ -60,22 +60,28 @@ def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual = None, my_d
     return G_paths.cpu().detach().numpy()
 
 if __name__ == '__main__':
-    np.random.seed(42)
+    # np.random.seed(42)
     S_0 = 1
     mu = 0.5
     sigma = 0.2
-    n_steps = 1000
-    paths = 100
-    T = 50
+    n_steps = 100
+    paths = 1000
+    T = 5
     dt = 0.05
     S_E, S_M, Exact_solution, Z, Log_Return = gen_paths_GBM(S_0, mu, sigma, n_steps, paths, T)
-    plt.plot(Log_Return)
+    plt.plot(Exact_solution[:, :10])
+    plt.title("Exact solution")
+    plt.show()
+
+    plt.plot(Log_Return[:, :10])
+    plt.title("Log_Return")
     plt.show()
 
     gen_model = torch.load('generator_first.pth')
     gen_model.eval()
     
-    model_paths = gen_paths_from_GAN(gen_model, S_0, dt, 10, 2)
+    model_paths = gen_paths_from_GAN(gen_model, S_0, dt, n_steps, 2)
 
     plt.plot(model_paths)
+    plt.title("Generated paths")
     plt.show()
