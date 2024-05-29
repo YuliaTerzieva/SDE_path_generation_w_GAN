@@ -37,6 +37,8 @@ def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual = None, my_d
     # where the next step is generated from the previously generated step
     # that's why only S_0 is provided
 
+    # todo: Add Z parameter for when we have supervised GAN (that uses the Z from the Brownian motion)
+
     Z = torch.randn((n_steps, n_paths)).type(torch.FloatTensor).to(device=torch.device(my_device))
     # print("Z is", Z.size())
     c_dt = torch.full((1, n_paths), dt).type(torch.FloatTensor).to(device=torch.device(my_device))
