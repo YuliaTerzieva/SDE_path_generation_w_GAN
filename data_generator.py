@@ -4,12 +4,11 @@ import torch
 import pdb
 
 
-def gen_paths_GBM(S_0 = 1, mu = 0.05, sigma = 0.2, n_steps = 100, n_paths = 1000, T = 5):  
+def gen_paths_GBM(S_0 = 1, mu = 0.05, sigma = 0.2, dt = 0.05, n_steps = 100, n_paths = 1000):  
     # with those default params, dt is 0.05
     # note : in my implementation I don't define delta t, but i define T and n_steps
     # note those equations are from the book Mathematical Modeling and COmputation in Finance
     
-    dt = T/n_steps
     Z = np.random.normal(0, 1, [n_steps,n_paths])
     S_E = np.zeros((n_steps, n_paths)) # Euler
     S_M = np.zeros((n_steps, n_paths)) # Mistein 
@@ -43,10 +42,11 @@ def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual_log_returns 
     G_paths = torch.zeros((n_steps, n_paths)).type(torch.FloatTensor).to(device=torch.device(my_device))
     G_paths[0, :] = S_0
 
-    Log_Return = torch.from_numpy(Log_Return).type(torch.FloatTensor).to(device=torch.device(my_device))
+    if actual_log_returns.any() != None:
+        actual_log_returns = torch.from_numpy(actual_log_returns).type(torch.FloatTensor).to(device=torch.device(my_device))
 
     for step_inx in range(n_steps-1):
-        if actual_log_returns != None :
+        if actual_log_returns.any() != None :
             input = actual_log_returns[step_inx].view(1, -1)
         else :
             input = G_paths[step_inx]
@@ -59,27 +59,39 @@ def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual_log_returns 
 
 if __name__ == '__main__':
     np.random.seed(42)
+    config_name = "cGAN_one_dt_mu_0_05_sigma_0_2"
     S_0 = 1
-    mu = 0.7
-    sigma = 1.1
-    n_steps = 100
-    paths = 1000
-    T = 5
+    mu = 0.05
+    sigma = 0.2
+    n_steps_array = [50, 100, 200, 400, 500]
+    n_paths = 1_000
     dt = 0.05
 
+    error_Weak = np.zeros((len(n_steps_array)))
+    error_Strong = np.zeros((len(n_steps_array)))
+    for i, n_steps in enumerate(n_steps_array):
+        S_E, S_M, Exact_solution, Z, Log_Return = gen_paths_GBM(S_0, mu, sigma, dt, n_steps, n_paths)
+        gen_model = torch.load(f'generator_{config_name}.pth')
+        gen_model.eval()
+        model_paths = gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual_log_returns = Log_Return)
+        error_Weak[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths[-1]))
+        error_Strong[i] = np.mean(np.abs(Exact_solution[-1]-model_paths[-1]))
+        print(error_Weak[i], error_Strong[i])
 
-    S_E, S_M, Exact_solution, Z, Log_Return = gen_paths_GBM(S_0, mu, sigma, n_steps, paths, T)
-    plt.plot(Exact_solution[:, 3:22], alpha = 0.7, color = 'lightblue')
-    plt.plot([], [], color = 'lightblue', label = "Real")
-
-    gen_model = torch.load('generator_high_mu.pth')
-    gen_model.eval()
-    
-    model_paths, model_log_returns = gen_paths_from_GAN(Log_Return, gen_model, S_0, dt, n_steps, paths)
-
-
-    plt.plot(model_paths[:, 3:22], alpha = 0.5, color = 'palevioletred')
-    plt.plot([], [], alpha = 0.5, color = 'palevioletred', label = "Generated one-step")
-    plt.title("Generated vs actual paths")
+    plt.plot(n_steps_array, error_Weak, label = 'Weak')
+    plt.plot(n_steps_array, error_Strong, label = 'Strong')
     plt.legend()
+    plt.savefig(f"Weak_Stong {config_name}")
     plt.show()
+
+    # plt.plot(Exact_solution[:, :100], alpha = 0.7, color = 'lightblue')
+    # plt.plot([], [], color = 'lightblue', label = "Real")
+    # plt.plot(model_paths[:, :100], alpha = 0.5, color = 'palevioletred')
+    # plt.plot([], [], alpha = 0.5, color = 'palevioletred', label = "Generated one-step")
+    # plt.title("Generated vs actual paths")
+    # plt.legend()
+    # plt.show()
+
+    
+
+

@@ -17,7 +17,6 @@ mu = 0.05
 sigma = 0.2
 n_steps = 100
 n_paths = 1000
-T = 5
 dt = 0.05
 number_data_points = 100_000
 epochs = 200
@@ -26,7 +25,7 @@ advancing_C = 2
 log_freq = 10
 
 ### Generating the SDE paths ###
-GBM_Euler, GBM_Milstein, GBM_Exact, Z, Log_Return = gen_paths_GBM(S_0, mu, sigma, n_steps, n_paths, T)
+GBM_Euler, GBM_Milstein, GBM_Exact, Z, Log_Return = gen_paths_GBM(S_0, mu, sigma, dt, n_steps, n_paths)
 
 ### NN initialization ###
 generator = Generator(c = 2).to(device=torch.device(my_device))
@@ -108,7 +107,7 @@ stop_training_time = time.time()
 torch.save(generator, f"generator_{config_name}.pth")
 torch.save(discriminator, f"discriminator_{config_name}.pth")
 
-print(f"Duration of training : {stop_training_time}")
+print(f"Duration of training : {stop_training_time - start_training_time} in seconds")
 
 losses(D_losses, G_losses, config_name)
 
