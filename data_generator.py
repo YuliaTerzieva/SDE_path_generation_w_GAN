@@ -1,11 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import pdb
 
 
-def gen_paths_GBM(S_0 = 1, mu = 0.05, sigma = 0.2, n_steps = 100_000, n_paths = 1000, T = 5_000):  
+def gen_paths_GBM(S_0 = 1, mu = 0.05, sigma = 0.2, n_steps = 100, n_paths = 1000, T = 5):  
     # with those default params, dt is 0.05
     # note : in my implementation I don't define delta t, but i define T and n_steps
+    # note those equations are from the book Mathematical Modeling and COmputation in Finance
     
     dt = T/n_steps
     Z = np.random.normal(0, 1, [n_steps,n_paths])
@@ -32,56 +34,52 @@ def gen_paths_GBM(S_0 = 1, mu = 0.05, sigma = 0.2, n_steps = 100_000, n_paths = 
 
     return S_E, S_M, Exact_solution, Z, Log_Return
 
-def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual = None, my_device = 'mps'): 
-    # note the currentl implementation is for iterative generation, 
-    # where the next step is generated from the previously generated step
-    # that's why only S_0 is provided
-
-    # todo: Add Z parameter for when we have supervised GAN (that uses the Z from the Brownian motion)
-
-    Z = torch.randn((n_steps, n_paths)).type(torch.FloatTensor).to(device=torch.device(my_device))
-    # print("Z is", Z.size())
+def gen_paths_from_GAN(gen_model, S_0, dt, n_steps, n_paths, actual_log_returns = None, Z_BM = None, my_device = 'mps'): 
+    if Z_BM !=None :
+        Z = Z_BM
+    else:
+        Z = torch.randn((n_steps, n_paths)).type(torch.FloatTensor).to(device=torch.device(my_device))
     c_dt = torch.full((1, n_paths), dt).type(torch.FloatTensor).to(device=torch.device(my_device))
     G_paths = torch.zeros((n_steps, n_paths)).type(torch.FloatTensor).to(device=torch.device(my_device))
-    # print("G is", G_paths.size())
     G_paths[0, :] = S_0
+
+    Log_Return = torch.from_numpy(Log_Return).type(torch.FloatTensor).to(device=torch.device(my_device))
+
     for step_inx in range(n_steps-1):
-        if actual == None :
-            # print("Step", step_inx)
-            # print(G_paths[step_inx])
-            # print(gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt)))
-            # print(torch.mul(G_paths[step_inx].view(-1, 1), gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt))))
-            G_paths[step_inx+1] = torch.squeeze(torch.mul(G_paths[step_inx].view(-1, 1), torch.exp(gen_model(Z[step_inx].view(1, -1), (G_paths[step_inx].view(1, -1), c_dt)))))
+        if actual_log_returns != None :
+            input = actual_log_returns[step_inx].view(1, -1)
         else :
-            # this should be tested and fixed
-            #G_paths[step_inx+1] = G_paths[step_inx] * gen_model(Z[step_inx], (actual[step_inx], c_dt)) 
-            pass
+            input = G_paths[step_inx]
+        gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
+        gen_pred = torch.exp(gen_pred)
+        gen_pred = gen_pred * G_paths[step_inx]
+        G_paths[step_inx+1] = torch.squeeze(gen_pred)
 
     return G_paths.cpu().detach().numpy()
 
 if __name__ == '__main__':
-    # np.random.seed(42)
+    np.random.seed(42)
     S_0 = 1
-    mu = 0.5
-    sigma = 0.2
+    mu = 0.7
+    sigma = 1.1
     n_steps = 100
     paths = 1000
     T = 5
     dt = 0.05
+
+
     S_E, S_M, Exact_solution, Z, Log_Return = gen_paths_GBM(S_0, mu, sigma, n_steps, paths, T)
-    plt.plot(Exact_solution[:, :10])
-    plt.title("Exact solution")
-    plt.show()
+    plt.plot(Exact_solution[:, 3:22], alpha = 0.7, color = 'lightblue')
+    plt.plot([], [], color = 'lightblue', label = "Real")
 
-    plt.plot(Log_Return[:, :10])
-    plt.title("Log_Return")
-    plt.show()
-
-    gen_model = torch.load('generator_first.pth')
+    gen_model = torch.load('generator_high_mu.pth')
     gen_model.eval()
     
-    model_paths = gen_paths_from_GAN(gen_model, S_0, dt, n_steps, 2)
+    model_paths, model_log_returns = gen_paths_from_GAN(Log_Return, gen_model, S_0, dt, n_steps, paths)
 
-    plt.plot(model_paths)
-    plt.title("Generated paths")
+
+    plt.plot(model_paths[:, 3:22], alpha = 0.5, color = 'palevioletred')
+    plt.plot([], [], alpha = 0.5, color = 'palevioletred', label = "Generated one-step")
+    plt.title("Generated vs actual paths")
+    plt.legend()
     plt.show()

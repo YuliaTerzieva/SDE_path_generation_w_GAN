@@ -1,3 +1,4 @@
+import pdb
 import torch
 import torch.nn as nn
 
@@ -7,17 +8,18 @@ import torch.nn as nn
 
 class Generator(nn.Module):
     def __init__(self, c = 0):
-        super().__init__()        
+        super().__init__()     
+        num_neurons = 200   
         self.model = nn.Sequential(
-            nn.Linear(1+c, 200),
+            nn.Linear(1+c, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 200),
+            nn.Linear(num_neurons, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 200),
+            nn.Linear(num_neurons, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 200),
+            nn.Linear(num_neurons, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 1, bias = False))
+            nn.Linear(num_neurons, 1, bias = False))
     
     def forward(self, x, c = None):
         if c == None :
@@ -33,16 +35,17 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, c = 0):
         super().__init__()        
+        num_neurons = 200
         self.model = nn.Sequential(
-            nn.Linear(1+c, 200),
+            nn.Linear(1+c, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 200),
+            nn.Linear(num_neurons, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 200),
+            nn.Linear(num_neurons, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 200),
+            nn.Linear(num_neurons, num_neurons),
             nn.LeakyReLU(0.1),
-            nn.Linear(200, 1, bias = False),
+            nn.Linear(num_neurons, 1, bias = False),
             nn.Sigmoid())
     
     def forward(self, x, c):
