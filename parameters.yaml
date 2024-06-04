@@ -1,5 +1,5 @@
 config_1:
-  config_name: "supervised_GAN_GBM_config1"
+  config_name: "cGAN_GBM_single_dt"
   process : 'GBM'
   S_0: 1
   mu: 0.05
@@ -12,10 +12,10 @@ config_1:
   batch_size: 1000
   advancing_C: 2
   log_freq: 10
-  use_Z: true
+  use_Z: false
 
 config_2:
-  config_name: "condition_GAN_GBM_config2"
+  config_name: "scGAN_GBM_single_dt"
   process : 'GBM'
   S_0: 1
   mu: 0.05
@@ -28,26 +28,10 @@ config_2:
   batch_size: 1000
   advancing_C: 2
   log_freq: 10
-  use_Z: false
+  use_Z: true
 
 config_3:
-  config_name: "small_supervised_GAN_GBM_config3"
-  process : 'GBM'
-  S_0: 1
-  mu: 0.05
-  sigma: 0.2
-  n_steps: 50
-  n_paths: 5
-  dt: 0.05
-  number_data_points: 15
-  epochs: 2
-  batch_size: 5
-  advancing_C: 2
-  log_freq: 10
-  use_Z: true
-
-config_4:
-  config_name: "condition_GAN_CIR_config4"
+  config_name: "cGAN_CIR_single_dt"
   process : 'CIR'
   S_0: 0.1
   kappa: 0.1
@@ -63,8 +47,8 @@ config_4:
   log_freq: 10
   use_Z: false
 
-config_5:
-  config_name: "supervised_GAN_CIR_config5"
+config_4:
+  config_name: "scGAN_CIR_signle_dt"
   process : 'CIR'
   S_0: 0.1
   kappa: 0.1
@@ -79,3 +63,19 @@ config_5:
   advancing_C: 2
   log_freq: 10
   use_Z: true
+
+config_5:
+  config_name: "cGAN_GBM_multiple_dts"
+  process : 'GBM'
+  S_0: 0.1
+  mu: 0.05
+  sigma: 0.2
+  n_steps: [40, 20, 10, 5, 4, 3, 2, 1]
+  n_paths: 1000
+  dt: [0.05, 0.1, 0.2, 0.4, 0.5, 0.67, 1, 2]
+  number_data_points: 100000
+  epochs: 200
+  batch_size: 1000
+  advancing_C: 2
+  log_freq: 10
+  use_Z: false

@@ -101,6 +101,7 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
 
         elif process == 'CIR' : 
             gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
+            gen_pred = gen_pred + 1
             gen_pred = gen_pred * S_bar
             gen_pred = torch.abs(gen_pred)
 
@@ -110,10 +111,10 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
 
 if __name__ == '__main__':
 
-    config_name = 'supervised_GAN_CIR_config5'
+    config_name = 'scGAN_CIR_signle_dt'
     process = 'CIR'
 
-    paths = 1
+    paths = 2
 
     S_E, S_M, Exact_solution, Z, Returns = gen_paths_CIR(0.1, 0.1, 0.1, 0.3, 0.05, 100, paths)
     gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
@@ -125,6 +126,7 @@ if __name__ == '__main__':
     plt.plot(model_paths_one_step, color = 'palevioletred')
     plt.plot([], [], color = 'palevioletred', label = "Generated one-step")
     plt.title("Generated vs actual paths")
+    plt.savefig(f"Plots/Generated vs actual paths_{config_name}")
     plt.legend()
     plt.show()
 
