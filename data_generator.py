@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import torch
 import pdb
 
+import yaml
+
 ############## GBM process ##############
 
 def gen_paths_GBM(S_0, mu, sigma, dt, n_steps, n_paths): 
@@ -111,21 +113,58 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
 
 if __name__ == '__main__':
 
-    config_name = 'scGAN_CIR_signle_dt'
-    process = 'CIR'
+    # Loading parameters
+    def load_config(filepath, config_key):
+        with open(filepath, 'r') as file:
+            configs = yaml.safe_load(file)
+        return configs[config_key]
 
-    paths = 2
+    # Load the specific configuration
+    config_key = 'config_4'
+    config = load_config('parameters.yaml', config_key)
 
-    S_E, S_M, Exact_solution, Z, Returns = gen_paths_CIR(0.1, 0.1, 0.1, 0.3, 0.05, 100, paths)
-    gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
-    gen_model.eval()        
-    model_paths_one_step = gen_paths_from_GAN(gen_model, process, 0.1, 0.1, 0.05, 100, paths, actual_returns=Returns, Z_BM=Z)
-    
-    plt.plot(Exact_solution, linestyle='dashed', color = 'lightblue')
+    # Access the variables
+    config_name = config['config_name']
+    process = config['process']
+    S_0 = config['S_0']
+    if process == 'GBM' :
+        SDE_params = {'mu' : config['mu'], 'sigma' : config['sigma']}
+    elif process == 'CIR' :
+        SDE_params = {'kappa' : config['kappa'], 'S_bar' : config['S_bar'], 'gamma' : config['gamma']}
+    n_steps = config['n_steps']
+    n_paths = config['n_paths']
+    dt = config['dt']
+    number_data_points = config['number_data_points']
+    epochs = config['epochs']
+    batch_size = config['batch_size']
+    advancing_C = config['advancing_C']
+    log_freq = config['log_freq']
+    use_Z = config['use_Z']
+
+    paths = 3
+
+    if process == 'GBM':
+        S_E, S_M, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, paths)
+        gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
+        gen_model.eval() 
+        if use_Z:       
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, None, dt, 100, paths, actual_returns=Returns, Z_BM=Z)
+        else:
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, None, dt, 100, paths, actual_returns=Returns)
+    elif process == 'CIR' : 
+        S_E, S_M, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 100, paths)
+        gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
+        gen_model.eval()  
+        if use_Z:         
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, SDE_params['S_bar'], dt, 100, paths, actual_returns=Returns, Z_BM=Z)
+        else:
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, SDE_params['S_bar'], dt, 100, paths, actual_returns=Returns)
+
+    plt.plot(Exact_solution, color = 'lightblue')
     plt.plot([], [], color = 'lightblue', label = "Exact")
-    plt.plot(model_paths_one_step, color = 'palevioletred')
+    plt.plot(model_paths_one_step, linestyle='dashed', color = 'palevioletred')
     plt.plot([], [], color = 'palevioletred', label = "Generated one-step")
-    plt.title("Generated vs actual paths")
+    plt.title(f"Generated vs actual paths {config_name}")
     plt.savefig(f"Plots/Generated vs actual paths_{config_name}")
     plt.legend()
     plt.show()
