@@ -1,8 +1,10 @@
 import numpy as np
-from data_generator import gen_paths_GBM
+import time
+from data_generator import *
 from plots import *
 from networks import *
-import time
+
+
 
 
 my_device = 'mps'
@@ -77,12 +79,6 @@ def train_network(config_name, process ,S_0, SDE_params, n_steps, n_paths, dt, n
             ### training the generator ###
             discriminator.eval()
             generator.train()
-
-            ### Generator noise ###
-            if use_Z : 
-                gen_input_noise = Z_tensor[[step_index], [path_index]]
-            else:
-                gen_input_noise = torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
 
             x_fake = generator.forward(gen_input_noise, (c_previous, c_dt)).T
             D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt))

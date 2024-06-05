@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from scipy import stats
 import numpy as np
 import torch
 from data_generator import *
@@ -72,4 +73,83 @@ def weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, n_steps_ar
     plt.title(f"Weak_Stong {config_name}")
     plt.legend()
     plt.savefig(f"Plots/Weak_Stong {config_name}")
+    plt.show()
+
+def ks_plot(config_name, process, SDE_params, use_Z):
+    torch.random.manual_seed(42)
+    np.random.seed(42)
+    
+    gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
+    gen_model.eval()
+
+    N_test = [100, 500, 1_000, 5_000, 10_000, 50_000, 100_000]
+    number_of_repetitions = 6
+
+    KS = np.zeros((len(N_test), number_of_repetitions, 3))
+    one_W = np.zeros((len(N_test), number_of_repetitions, 3))
+
+    for count, N in enumerate(N_test):
+        for i in range(number_of_repetitions):
+            if process == 'GBM':
+                S_t = 0.1
+                dt = 0.05 #0.4 -> or 8 steps?
+                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, 2, N)
+                S_bar = None
+            else :
+                S_t = 0.4
+                dt = 0.05
+                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 2, N)
+                S_bar = SDE_params['S_bar']
+
+            if use_Z:         
+                model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_t, S_bar, dt, 2, N, actual_returns=Returns, Z_BM=Z)
+            else:
+                model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_t, S_bar, dt, 2, N, actual_returns=Returns)
+            
+            Exact_solution = Exact_solution[-1]
+            Euler = Euler[-1]
+            E_ks = stats.ks_2samp(Euler, Exact_solution)[0]
+            E_one_W_distance = stats.wasserstein_distance(Euler, Exact_solution)
+
+            Milstain = Milstain[-1]
+            M_ks = stats.ks_2samp(Milstain, Exact_solution)[0]
+            M_one_W_distance = stats.wasserstein_distance(Milstain, Exact_solution)
+
+            model_paths_one_step = model_paths_one_step[-1].squeeze()
+            GAN_ks = stats.ks_2samp(model_paths_one_step, Exact_solution)[0]
+            GAN_one_W_distance = stats.wasserstein_distance(model_paths_one_step, Exact_solution)
+
+            KS[count, i] = [E_ks, M_ks, GAN_ks]
+            one_W[count, i] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance]
+
+    labels = ["Euler", 'Milstain', 'GAN']
+
+    
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+
+    KS_means = KS.mean(axis=1)
+    KS_std = KS.std(axis=1)
+    for i in range(KS_means.shape[1]):
+        ax1.fill_between(N_test, KS_means[:, i] - KS_std[:, i], KS_means[:, i] + KS_std[:, i], alpha=0.3)
+        ax1.plot(N_test, KS_means[:, i], label = labels[i])
+    
+    ax1.legend()
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_title("KS statistics")
+
+    one_W_means = one_W.mean(axis=1)
+    one_W_std = one_W.std(axis=1)
+    for i in range(one_W_means.shape[1]):
+        ax2.fill_between(N_test, one_W_means[:, i] - one_W_std[:, i], one_W_means[:, i] + one_W_std[:, i], alpha=0.3)
+        ax2.plot(N_test, one_W_means[:, i], label = labels[i])
+
+    ax2.legend()
+    ax2.set_xscale('log')
+    ax2.set_yscale('log')
+    ax2.set_title("1_Waserstain distance")
+
+    fig.suptitle(f'Configuration {config_name}', fontsize=15)
+    plt.savefig(f'Plots/KS_1W_{config_name}')
     plt.show()

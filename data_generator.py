@@ -1,8 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import pdb
-
 import yaml
 
 ############## GBM process ##############
@@ -120,7 +118,7 @@ if __name__ == '__main__':
         return configs[config_key]
 
     # Load the specific configuration
-    config_key = 'config_4'
+    config_key = 'config_1'
     config = load_config('parameters.yaml', config_key)
 
     # Access the variables
@@ -141,7 +139,7 @@ if __name__ == '__main__':
     log_freq = config['log_freq']
     use_Z = config['use_Z']
 
-    paths = 3
+    paths = 100
 
     if process == 'GBM':
         S_E, S_M, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, paths)

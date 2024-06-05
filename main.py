@@ -30,10 +30,16 @@ advancing_C = config['advancing_C']
 log_freq = config['log_freq']
 use_Z = config['use_Z']
 
+print('\033[35m'+ f"I'm starting training of {config_name} with process {process} w/ parameters {SDE_params} \n the training is on {number_data_points} points, note using Z is {use_Z}" + '\033[30m')
+
+torch.random.manual_seed(42)
+np.random.seed(42)
 
 # We first train the networks
-# D_losses, G_losses = train_network(config_name, process, S_0, SDE_params, n_steps, n_paths, dt, number_data_points, epochs, batch_size, advancing_C, log_freq, use_Z)
+D_losses, G_losses = train_network(config_name, process, S_0, SDE_params, n_steps, n_paths, dt, number_data_points, epochs, batch_size, advancing_C, log_freq, use_Z)
 
-steps_weak_stong = np.arange(20, 100, 20)
+ks_plot(config_name, process, SDE_params, use_Z)
+
+steps_weak_stong = np.arange(20, 101, 20)
 paths_weak_strong = 500
 weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, steps_weak_stong, paths_weak_strong, dt, use_Z)
