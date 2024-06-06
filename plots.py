@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from scipy import stats
+from statsmodels.distributions.empirical_distribution import ECDF
 import numpy as np
 import torch
 from data_generator import *
@@ -9,7 +10,7 @@ def losses(D_losses, G_losses, config_name):
     plt.plot(D_losses, label = "Discriminator loss")
     plt.plot(G_losses, label = "Generator loss")
     plt.legend()
-    plt.savefig(f"Plots/Loss {config_name}.png")
+    plt.savefig(f"Plots/Loss/Loss {config_name}.png")
     plt.show()
 
 def log_returns(actual_log_returns, model, n_steps, n_paths, batch_size, c_dt, config_name, my_device = 'mps'):
@@ -31,7 +32,47 @@ def log_returns(actual_log_returns, model, n_steps, n_paths, batch_size, c_dt, c
     plt.hist(pred_Log_Return.flatten(), bins = 50, alpha = 0.5, density = True, color = 'palevioletred', label="Generated")
     plt.legend()
     plt.title(f"Log Returns {config_name}")
-    plt.savefig(f"Plots/Log Returns {config_name}")
+    plt.savefig(f"Plots/Log Returns/Log Returns {config_name}")
+    plt.show()
+
+def ECDF_multiple_dts(process, SDE_params, use_Z):
+    S_t = 0.1
+    dts = [0.05, 0.1, 0.5, 1, 2]
+    paths = 1000
+
+    gen_model = torch.load('Trained_Models/generator_scGAN_CIR_multiple_dts.pth') if use_Z else torch.load('Trained_Models/generator_cGAN_CIR_multiple_dts.pth')
+    gen_model.eval()
+
+    for dt in dts:
+        steps = 100#int(2/dt) +1 
+        c_dt = torch.full((1, paths), dt).type(torch.FloatTensor).to(device='mps')
+        if process == 'GBM':
+            _, _, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, paths, steps)
+        else :
+            _, _, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, paths, steps)
+
+        Returns_torch = torch.from_numpy(Returns).type(torch.FloatTensor).to(device=torch.device('mps')).T
+        Z_torch =  torch.from_numpy(Z).type(torch.FloatTensor).to(device=torch.device('mps')).T
+        model_path = torch.full((steps, paths), S_t)
+        for i in range(1,steps):
+            c_previous = Returns_torch[i-1].view(1, -1)
+            x_random = Z_torch[i-1].view(1, -1) if use_Z else torch.randn(paths, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+            x_fake = gen_model.forward(x_random, (c_previous, c_dt)).view(1, -1)
+            if process == 'GBM':
+                model_path[i] = GBM_return_to_stock(x_fake, model_path[i-1]).squeeze()
+            else :
+                model_path[i] = CIR_return_to_stock(x_fake, SDE_params['S_bar']).squeeze()
+
+        # ecdf = ECDF(Exact_solution.flatten())
+        # plt.plot(ecdf.x, ecdf.y, color = "black", linestyle='dashed')
+        ecdf = ECDF(model_path.cpu().detach().numpy().flatten())
+        plt.plot(ecdf.x, ecdf.y, label = f'$\Delta t = {dt}$')
+    
+    plt.legend()
+    plt.xlabel("$S_{t+\Delta t} | S_t$")
+    plt.title("Supervised GAN") if use_Z else plt.title("Vanilla GAN")
+    # plt.savefig()
+    plt.xlim([0, 0.3])
     plt.show()
 
 def weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, n_steps_array, n_paths, dt, use_Z = False):
@@ -131,7 +172,7 @@ def weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params
     plt.xlabel("$\delta t$")
     plt.title(f"Weak_Stong {config_name}")
     plt.legend()
-    plt.savefig(f"Plots/Weak_Stong {config_name}")
+    plt.savefig(f"Plots/Weak_Stong/Weak_Stong {config_name}")
     plt.show()
 
 def ks_plot(config_name, process, SDE_params, use_Z):
@@ -141,23 +182,25 @@ def ks_plot(config_name, process, SDE_params, use_Z):
     gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
     gen_model.eval()
 
-    N_test = [100, 500, 1_000, 5_000, 10_000, 50_000, 100_000]
+    N_test = [100, 1_000, 10_000, 100_000]
     number_of_repetitions = 6
 
-    KS = np.zeros((len(N_test), number_of_repetitions, 3))
-    one_W = np.zeros((len(N_test), number_of_repetitions, 3))
+    KS = np.zeros((len(N_test), number_of_repetitions, 4))
+    one_W = np.zeros((len(N_test), number_of_repetitions, 4))
 
     for count, N in enumerate(N_test):
         for i in range(number_of_repetitions):
             if process == 'GBM':
                 S_t = 0.1
-                dt = 0.05 #0.4 -> or 8 steps?
+                dt = 0.05#0.4
                 Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, 2, N)
+                _, _, Exact_solution_2, _, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, 2, N)
                 S_bar = None
             else :
                 S_t = 0.4
-                dt = 0.05
+                dt = 0.05#0.4
                 Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 2, N)
+                _, _, Exact_solution_2, _, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 2, N)
                 S_bar = SDE_params['S_bar']
 
             if use_Z:         
@@ -178,10 +221,14 @@ def ks_plot(config_name, process, SDE_params, use_Z):
             GAN_ks = stats.ks_2samp(model_paths_one_step, Exact_solution)[0]
             GAN_one_W_distance = stats.wasserstein_distance(model_paths_one_step, Exact_solution)
 
-            KS[count, i] = [E_ks, M_ks, GAN_ks]
-            one_W[count, i] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance]
+            Exact_solution_2 = Exact_solution_2[-1]
+            Exact_solution_ks = stats.ks_2samp(Exact_solution_2, Exact_solution)[0]
+            Exact_solution_one_W_distance = stats.wasserstein_distance(Exact_solution_2, Exact_solution)
 
-    labels = ["Euler", 'Milstain', 'GAN']
+            KS[count, i] = [E_ks, M_ks, GAN_ks, Exact_solution_ks]
+            one_W[count, i] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance, Exact_solution_one_W_distance]
+
+    labels = ["Euler", 'Milstain', 'GAN', "Exact"]
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
 

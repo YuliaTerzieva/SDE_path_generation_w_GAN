@@ -68,6 +68,19 @@ def gen_paths_CIR(S_0, kappa, S_bar, gamma, dt, n_steps, n_paths):
 
     return S_E, S_M, Exact_solution, Z, Return
 
+def GBM_return_to_stock(tensor, GBM_last_step):
+    gen_pred = tensor
+    gen_pred = torch.exp(gen_pred)
+    gen_pred = gen_pred * GBM_last_step
+    return gen_pred.T
+
+def CIR_return_to_stock(tensor, S_bar):
+    gen_pred = tensor.T
+    gen_pred = gen_pred + 1
+    gen_pred = gen_pred * S_bar
+    gen_pred = torch.abs(gen_pred)
+    return gen_pred
+
 def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns = None, Z_BM = None, my_device = 'mps'): 
     """
         gen_model -> torch model
@@ -97,15 +110,10 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
             input = G_paths[step_inx].view(1, -1)
 
         if process == 'GBM':
-            gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
-            gen_pred = torch.exp(gen_pred)
-            gen_pred = gen_pred * G_paths[step_inx]
+            gen_pred = GBM_return_to_stock(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), G_paths[step_inx])
 
         elif process == 'CIR' : 
-            gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
-            gen_pred = gen_pred + 1
-            gen_pred = gen_pred * S_bar
-            gen_pred = torch.abs(gen_pred)
+            gen_pred = CIR_return_to_stock(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), S_bar)
 
         G_paths[step_inx+1] = torch.squeeze(gen_pred)
 
@@ -120,7 +128,7 @@ if __name__ == '__main__':
         return configs[config_key]
 
     # Load the specific configuration
-    config_key = 'config_5'
+    config_key = 'config_4'
     config = load_config('parameters.yaml', config_key)
 
     # Access the variables
@@ -141,30 +149,32 @@ if __name__ == '__main__':
     log_freq = config['log_freq']
     use_Z = config['use_Z']
 
-    paths = 100
+    paths = 1 # dont' do two paths because of line 19/20 (the normalization)
+
 
     if process == 'GBM':
         S_E, S_M, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, paths)
         gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
         gen_model.eval() 
         if use_Z:       
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, None, dt, 100, paths, actual_returns=Returns, Z_BM=Z)
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, None, dt, n_steps, paths, actual_returns=Returns, Z_BM=Z)
         else:
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, None, dt, 100, paths, actual_returns=Returns)
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, None, dt, n_steps, paths, actual_returns=Returns)
     elif process == 'CIR' : 
-        S_E, S_M, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 100, paths)
+        S_E, S_M, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, n_steps, paths)
         gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
         gen_model.eval()  
         if use_Z:         
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, SDE_params['S_bar'], dt, 100, paths, actual_returns=Returns, Z_BM=Z)
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, SDE_params['S_bar'], dt, n_steps, paths, actual_returns=Returns, Z_BM=Z)
         else:
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, SDE_params['S_bar'], dt, 100, paths, actual_returns=Returns)
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, SDE_params['S_bar'], dt, n_steps, paths, actual_returns=Returns)
 
     plt.plot(Exact_solution, color = 'lightblue')
     plt.plot([], [], color = 'lightblue', label = "Exact")
     plt.plot(model_paths_one_step, linestyle='dashed', color = 'palevioletred')
     plt.plot([], [], color = 'palevioletred', label = "Generated one-step")
     plt.title(f"Generated vs actual paths {config_name}")
+    plt.xlabel("time")
     plt.savefig(f"Plots/Generated vs actual paths_{config_name}")
     plt.legend()
     plt.show()

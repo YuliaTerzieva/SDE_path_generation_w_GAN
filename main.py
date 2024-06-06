@@ -37,12 +37,16 @@ torch.random.manual_seed(42)
 np.random.seed(42)
 
 # We first train the networks
-D_losses, G_losses = train_network(config_name, process, S_0, SDE_params, n_steps, n_paths, dt, number_data_points, epochs, batch_size, advancing_C, log_freq, use_Z, multiple_dt)
+# D_losses, G_losses = train_network(config_name, process, S_0, SDE_params, n_steps, n_paths, dt, number_data_points, epochs, batch_size, advancing_C, log_freq, use_Z, multiple_dt)
 
-ks_plot(config_name, process, SDE_params, use_Z)
+# ks_plot(config_name, process, SDE_params, use_Z)
 
 # steps_weak_stong = np.arange(20, 101, 20)
 # paths_weak_strong = 500
 # weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, steps_weak_stong, paths_weak_strong, dt, use_Z)
 
-weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params, n_paths, dt, use_Z)
+# weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params, n_paths, dt, use_Z)
+
+# run the following code iff you have pretrained scGAN and cGAN for CIR multi dt proces :
+ECDF_multiple_dts(process, SDE_params, False)
+ECDF_multiple_dts(process, SDE_params, True)
