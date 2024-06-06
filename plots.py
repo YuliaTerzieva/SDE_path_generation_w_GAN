@@ -75,6 +75,65 @@ def weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, n_steps_ar
     plt.savefig(f"Plots/Weak_Stong {config_name}")
     plt.show()
 
+def weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params, n_paths, dt, use_Z = False):
+    np.random.seed(42)
+
+    possible_dt_steps = np.array([1, 2, 4, 8, 10, 20, 40])
+
+    error_Weak_GAN = np.zeros((len(possible_dt_steps)))
+    error_Strong_GAN = np.zeros((len(possible_dt_steps)))
+    error_Weak_Euler = np.zeros((len(possible_dt_steps)))
+    error_Strong_Euler = np.zeros((len(possible_dt_steps)))
+    error_Weak_Milstain = np.zeros((len(possible_dt_steps)))
+    error_Strong_Milstain = np.zeros((len(possible_dt_steps)))
+
+    for i, n_dt_step in enumerate(possible_dt_steps):
+        n_steps = int(2 / (dt*n_dt_step)) + 1 
+
+        print("dt = ", dt*n_dt_step)
+        print("n_steps", 2 / (dt*n_dt_step), n_steps)
+
+        if process == 'GBM':
+            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt*n_dt_step, n_steps, n_paths)
+            S_bar = None
+        elif process == 'CIR' : 
+            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt*n_dt_step, n_steps, n_paths)
+            S_bar = SDE_params['S_bar']
+
+        gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
+        gen_model.eval()
+
+        if use_Z :
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt*n_dt_step, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
+        else :
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt*n_dt_step, n_steps, n_paths, actual_returns=Returns)
+        
+        error_Weak_GAN[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_one_step[-1]))
+        error_Strong_GAN[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_one_step[-1]))
+        error_Weak_Euler[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(Euler[-1]))
+        error_Strong_Euler[i] = np.mean(np.abs(Exact_solution[-1]-Euler[-1]))
+        error_Weak_Milstain[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(Milstain[-1]))
+        error_Strong_Milstain[i] = np.mean(np.abs(Exact_solution[-1]-Milstain[-1]))
+
+    print(error_Weak_GAN)
+    print(error_Strong_GAN)
+    print(error_Weak_Euler)
+    print(error_Strong_Euler)
+    print(error_Weak_Milstain)
+    print(error_Strong_Milstain)
+
+    plt.plot(possible_dt_steps*dt, error_Weak_GAN, color = 'palevioletred', label = 'Weak error GAN')
+    plt.plot(possible_dt_steps*dt, error_Strong_GAN, color = 'palevioletred', linestyle='dashed', label = 'Strong error GAN')
+    plt.plot(possible_dt_steps*dt, error_Weak_Euler,  color = 'darkblue', label = 'Weak error Euler')
+    plt.plot(possible_dt_steps*dt, error_Strong_Euler,  color = 'darkblue', linestyle='dashed', label = 'Strong error Euler')
+    plt.plot(possible_dt_steps*dt, error_Weak_Milstain, color = 'lightblue', label = 'Weak error Milstain')
+    plt.plot(possible_dt_steps*dt, error_Strong_Milstain, color = 'lightblue', linestyle='dashed', label = 'Strong error Milstain')
+    plt.xlabel("$\delta t$")
+    plt.title(f"Weak_Stong {config_name}")
+    plt.legend()
+    plt.savefig(f"Plots/Weak_Stong {config_name}")
+    plt.show()
+
 def ks_plot(config_name, process, SDE_params, use_Z):
     torch.random.manual_seed(42)
     np.random.seed(42)
@@ -123,8 +182,6 @@ def ks_plot(config_name, process, SDE_params, use_Z):
             one_W[count, i] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance]
 
     labels = ["Euler", 'Milstain', 'GAN']
-
-    
 
     fig, (ax1, ax2) = plt.subplots(1, 2)
 

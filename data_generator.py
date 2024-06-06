@@ -58,8 +58,10 @@ def gen_paths_CIR(S_0, kappa, S_bar, gamma, dt, n_steps, n_paths):
         S_E[step_inx+1, :] =  S_E[step_inx, :] + kappa * (S_bar - S_E[step_inx, :]) * dt + gamma * np.sqrt(S_E[step_inx+1, :]) * dW 
         S_E[step_inx+1, :] = np.maximum(S_E[step_inx+1, :], 0)
 
-        S_M[step_inx+1, :] = None
-        
+        S_M[step_inx+1, :] = S_M[step_inx, :] + kappa * (S_bar - S_M[step_inx, :]) * dt + gamma * np.sqrt(S_M[step_inx+1, :]) * dW\
+                             + 0.25 * gamma**2 * (np.power(dW,2) - dt)
+        S_M[step_inx+1, :] = np.maximum(S_M[step_inx+1, :], 0)
+                             
         Exact_solution[step_inx+1, :] = CIR_sample(kappa,gamma,S_bar, 0 , dt , Exact_solution[step_inx, :], n_paths)
 
         Return[step_inx+1, :] = (Exact_solution[step_inx+1, :] - S_bar ) / S_bar
@@ -118,7 +120,7 @@ if __name__ == '__main__':
         return configs[config_key]
 
     # Load the specific configuration
-    config_key = 'config_1'
+    config_key = 'config_5'
     config = load_config('parameters.yaml', config_key)
 
     # Access the variables

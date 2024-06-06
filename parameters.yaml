@@ -13,6 +13,7 @@ config_1:
   advancing_C: 2
   log_freq: 10
   use_Z: false
+  multiple_dt : false
 
 config_2:
   config_name: "scGAN_GBM_single_dt"
@@ -29,6 +30,7 @@ config_2:
   advancing_C: 2
   log_freq: 10
   use_Z: true
+  multiple_dt : false
 
 config_3:
   config_name: "cGAN_CIR_single_dt"
@@ -46,6 +48,7 @@ config_3:
   advancing_C: 2
   log_freq: 10
   use_Z: false
+  multiple_dt : false
 
 config_4:
   config_name: "scGAN_CIR_signle_dt"
@@ -63,19 +66,74 @@ config_4:
   advancing_C: 2
   log_freq: 10
   use_Z: true
+  multiple_dt : false
 
 config_5:
   config_name: "cGAN_GBM_multiple_dts"
   process : 'GBM'
-  S_0: 0.1
+  S_0: 1
   mu: 0.05
   sigma: 0.2
-  n_steps: [40, 20, 10, 5, 4, 3, 2, 1]
+  n_steps: 100
   n_paths: 1000
-  dt: [0.05, 0.1, 0.2, 0.4, 0.5, 0.67, 1, 2]
+  dt: 0.05
   number_data_points: 100000
   epochs: 200
   batch_size: 1000
   advancing_C: 2
   log_freq: 10
   use_Z: false
+  multiple_dt : true
+
+config_6:
+  config_name: "scGAN_GBM_multiple_dts"
+  process : 'GBM'
+  S_0: 1
+  mu: 0.05
+  sigma: 0.2
+  n_steps: 100
+  n_paths: 1000
+  dt: 0.05
+  number_data_points: 100000
+  epochs: 200
+  batch_size: 1000
+  advancing_C: 2
+  log_freq: 10
+  use_Z: true
+  multiple_dt : true
+
+config_7:
+  config_name: "cGAN_CIR_multiple_dts"
+  process : 'CIR'
+  S_0: 0.1
+  kappa: 0.1
+  S_bar: 0.1
+  gamma : 0.1
+  n_steps: 100
+  n_paths: 1000
+  dt: 0.05
+  number_data_points: 100000
+  epochs: 200
+  batch_size: 1000
+  advancing_C: 2
+  log_freq: 10
+  use_Z: false
+  multiple_dt : true
+
+config_8:
+  config_name: "scGAN_CIR_multiple_dts"
+  process : 'CIR'
+  S_0: 0.1
+  kappa: 0.1
+  S_bar: 0.1
+  gamma : 0.1
+  n_steps: 100
+  n_paths: 1000
+  dt: 0.05
+  number_data_points: 100000
+  epochs: 200
+  batch_size: 1000
+  advancing_C: 2
+  log_freq: 10
+  use_Z: true
+  multiple_dt : true
