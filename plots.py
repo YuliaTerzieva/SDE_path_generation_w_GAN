@@ -59,9 +59,9 @@ def ECDF_multiple_dts(process, SDE_params, use_Z):
             x_random = Z_torch[i-1].view(1, -1) if use_Z else torch.randn(paths, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
             x_fake = gen_model.forward(x_random, (c_previous, c_dt)).view(1, -1)
             if process == 'GBM':
-                model_path[i] = GBM_return_to_stock(x_fake, model_path[i-1]).squeeze()
+                model_path[i] = GBM_St_from_Rt(x_fake, model_path[i-1]).squeeze()
             else :
-                model_path[i] = CIR_return_to_stock(x_fake, SDE_params['S_bar']).squeeze()
+                model_path[i] = CIR_St_from_Rt(x_fake, SDE_params['S_bar']).squeeze()
 
         # ecdf = ECDF(Exact_solution.flatten())
         # plt.plot(ecdf.x, ecdf.y, color = "black", linestyle='dashed')
@@ -183,30 +183,41 @@ def ks_plot(config_name, process, SDE_params, use_Z):
     gen_model.eval()
 
     N_test = [100, 1_000, 10_000, 100_000]
-    number_of_repetitions = 6
+    number_of_repetitions = 1
 
     KS = np.zeros((len(N_test), number_of_repetitions, 4))
     one_W = np.zeros((len(N_test), number_of_repetitions, 4))
 
     for count, N in enumerate(N_test):
-        for i in range(number_of_repetitions):
+        steps = 10
+        paths = int(N/10)
+        for rep in range(number_of_repetitions):
             if process == 'GBM':
                 S_t = 0.1
-                dt = 0.05#0.4
-                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, 2, N)
-                _, _, Exact_solution_2, _, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, 2, N)
-                S_bar = None
+                dt = 0.05
+                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
+                _, _, Exact_solution_2, _, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
             else :
                 S_t = 0.4
-                dt = 0.05#0.4
-                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 2, N)
-                _, _, Exact_solution_2, _, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, 2, N)
-                S_bar = SDE_params['S_bar']
-
-            if use_Z:         
-                model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_t, S_bar, dt, 2, N, actual_returns=Returns, Z_BM=Z)
-            else:
-                model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_t, S_bar, dt, 2, N, actual_returns=Returns)
+                dt = 0.05
+                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
+                _, _, Exact_solution_2, _, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
+            
+            # print(Returns.shape)
+            c_dt = torch.full((1, paths), dt).type(torch.FloatTensor).to(device='mps')
+            Returns_torch = torch.from_numpy(Returns).type(torch.FloatTensor).to(device=torch.device('mps'))
+            Z_torch =  torch.from_numpy(Z).type(torch.FloatTensor).to(device=torch.device('mps'))
+            model_path = torch.full((steps, paths), S_t)
+            for i in range(1,steps):
+                c_previous = Returns_torch[i-1].view(1, -1)
+                x_random = Z_torch[i-1].view(1, -1) if use_Z else torch.randn(paths, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+                # print(c_previous.shape, x_random.shape, c_dt.shape) # should all be 1 x paths
+                x_fake = gen_model.forward(x_random, (c_previous, c_dt)).view(1, -1)
+                if process == 'GBM':
+                    model_path[i] = GBM_St_from_Rt(x_fake, model_path[i-1]).squeeze()
+                else :
+                    model_path[i] = CIR_St_from_Rt(x_fake, SDE_params['S_bar']).squeeze()
+            
             
             Exact_solution = Exact_solution[-1]
             Euler = Euler[-1]
@@ -217,16 +228,17 @@ def ks_plot(config_name, process, SDE_params, use_Z):
             M_ks = stats.ks_2samp(Milstain, Exact_solution)[0]
             M_one_W_distance = stats.wasserstein_distance(Milstain, Exact_solution)
 
-            model_paths_one_step = model_paths_one_step[-1].squeeze()
-            GAN_ks = stats.ks_2samp(model_paths_one_step, Exact_solution)[0]
-            GAN_one_W_distance = stats.wasserstein_distance(model_paths_one_step, Exact_solution)
+            model_path = model_path[-1].cpu().detach().numpy()
+            GAN_ks = stats.ks_2samp(model_path, Exact_solution)[0]
+            GAN_one_W_distance = stats.wasserstein_distance(model_path, Exact_solution)
 
             Exact_solution_2 = Exact_solution_2[-1]
             Exact_solution_ks = stats.ks_2samp(Exact_solution_2, Exact_solution)[0]
             Exact_solution_one_W_distance = stats.wasserstein_distance(Exact_solution_2, Exact_solution)
 
-            KS[count, i] = [E_ks, M_ks, GAN_ks, Exact_solution_ks]
-            one_W[count, i] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance, Exact_solution_one_W_distance]
+            KS[count, rep] = [E_ks, M_ks, GAN_ks, Exact_solution_ks]
+            one_W[count, rep] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance, Exact_solution_one_W_distance]
+        print(f"Done with N = {N}, repetition = {rep}")
 
     labels = ["Euler", 'Milstain', 'GAN', "Exact"]
 

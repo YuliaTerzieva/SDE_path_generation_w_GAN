@@ -39,7 +39,7 @@ np.random.seed(42)
 # We first train the networks
 # D_losses, G_losses = train_network(config_name, process, S_0, SDE_params, n_steps, n_paths, dt, number_data_points, epochs, batch_size, advancing_C, log_freq, use_Z, multiple_dt)
 
-# ks_plot(config_name, process, SDE_params, use_Z)
+ks_plot(config_name, process, SDE_params, use_Z)
 
 # steps_weak_stong = np.arange(20, 101, 20)
 # paths_weak_strong = 500

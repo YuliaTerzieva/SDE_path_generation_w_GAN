@@ -68,13 +68,13 @@ def gen_paths_CIR(S_0, kappa, S_bar, gamma, dt, n_steps, n_paths):
 
     return S_E, S_M, Exact_solution, Z, Return
 
-def GBM_return_to_stock(tensor, GBM_last_step):
+def GBM_St_from_Rt(tensor, GBM_last_step):
     gen_pred = tensor
     gen_pred = torch.exp(gen_pred)
     gen_pred = gen_pred * GBM_last_step
     return gen_pred.T
 
-def CIR_return_to_stock(tensor, S_bar):
+def CIR_St_from_Rt(tensor, S_bar):
     gen_pred = tensor.T
     gen_pred = gen_pred + 1
     gen_pred = gen_pred * S_bar
@@ -110,10 +110,10 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
             input = G_paths[step_inx].view(1, -1)
 
         if process == 'GBM':
-            gen_pred = GBM_return_to_stock(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), G_paths[step_inx])
+            gen_pred = GBM_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), G_paths[step_inx])
 
         elif process == 'CIR' : 
-            gen_pred = CIR_return_to_stock(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), S_bar)
+            gen_pred = CIR_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), S_bar)
 
         G_paths[step_inx+1] = torch.squeeze(gen_pred)
 
