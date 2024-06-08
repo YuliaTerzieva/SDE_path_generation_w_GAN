@@ -51,7 +51,7 @@ config_3:
   multiple_dt : false
 
 config_4:
-  config_name: "scGAN_CIR_signle_dt"
+  config_name: "scGAN_CIR_single_dt"
   process : 'CIR'
   S_0: 0.1
   kappa: 0.1

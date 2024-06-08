@@ -80,8 +80,8 @@ def weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, n_steps_ar
 
     error_Weak_one_step = np.zeros((len(n_steps_array)))
     error_Strong_one_step = np.zeros((len(n_steps_array)))
-    error_Weak_self_gen = np.zeros((len(n_steps_array)))
-    error_Strong_self_gen = np.zeros((len(n_steps_array)))
+    # error_Weak_self_gen = np.zeros((len(n_steps_array)))
+    # error_Strong_self_gen = np.zeros((len(n_steps_array)))
 
     for i, n_steps in enumerate(n_steps_array):
         if process == 'GBM':
@@ -96,20 +96,20 @@ def weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, n_steps_ar
 
         if use_Z :
             model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
-            model_paths_self_gen =  gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, Z_BM=Z)
+            # model_paths_self_gen =  gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, Z_BM=Z)
         else :
             model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns)
-            model_paths_self_gen =  gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths)
+            # model_paths_self_gen =  gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths)
         
         error_Weak_one_step[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_one_step[-1]))
         error_Strong_one_step[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_one_step[-1]))
-        error_Weak_self_gen[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_self_gen[-1]))
-        error_Strong_self_gen[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_self_gen[-1]))
+        # error_Weak_self_gen[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_self_gen[-1]))
+        # error_Strong_self_gen[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_self_gen[-1]))
 
     plt.plot(n_steps_array, error_Weak_one_step, linestyle='dashed', label = 'Weak error one step')
     plt.plot(n_steps_array, error_Strong_one_step, linestyle='dashed', label = 'Strong error one step')
-    plt.plot(n_steps_array, error_Weak_self_gen, label = 'Weak error self gen')
-    plt.plot(n_steps_array, error_Strong_self_gen, label = 'Strong error self gen')
+    # plt.plot(n_steps_array, error_Weak_self_gen, label = 'Weak error self gen')
+    # plt.plot(n_steps_array, error_Strong_self_gen, label = 'Strong error self gen')
     plt.xlabel("number of steps")
     plt.title(f"Weak_Stong {config_name}")
     plt.legend()
@@ -175,7 +175,7 @@ def weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params
     plt.savefig(f"Plots/Weak_Stong/Weak_Stong {config_name}")
     plt.show()
 
-def ks_plot(config_name, process, SDE_params, use_Z):
+def ks_plot(config_name, process, S_t, SDE_params, use_Z):
     torch.random.manual_seed(42)
     np.random.seed(42)
     
@@ -183,41 +183,19 @@ def ks_plot(config_name, process, SDE_params, use_Z):
     gen_model.eval()
 
     N_test = [100, 1_000, 10_000, 100_000]
-    number_of_repetitions = 1
+    number_of_repetitions = 5
 
     KS = np.zeros((len(N_test), number_of_repetitions, 4))
     one_W = np.zeros((len(N_test), number_of_repetitions, 4))
 
+    dt = 0.05
+
     for count, N in enumerate(N_test):
+        
         steps = 10
         paths = int(N/10)
         for rep in range(number_of_repetitions):
-            if process == 'GBM':
-                S_t = 0.1
-                dt = 0.05
-                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
-                _, _, Exact_solution_2, _, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
-            else :
-                S_t = 0.4
-                dt = 0.05
-                Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
-                _, _, Exact_solution_2, _, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
-            
-            # print(Returns.shape)
-            c_dt = torch.full((1, paths), dt).type(torch.FloatTensor).to(device='mps')
-            Returns_torch = torch.from_numpy(Returns).type(torch.FloatTensor).to(device=torch.device('mps'))
-            Z_torch =  torch.from_numpy(Z).type(torch.FloatTensor).to(device=torch.device('mps'))
-            model_path = torch.full((steps, paths), S_t)
-            for i in range(1,steps):
-                c_previous = Returns_torch[i-1].view(1, -1)
-                x_random = Z_torch[i-1].view(1, -1) if use_Z else torch.randn(paths, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
-                # print(c_previous.shape, x_random.shape, c_dt.shape) # should all be 1 x paths
-                x_fake = gen_model.forward(x_random, (c_previous, c_dt)).view(1, -1)
-                if process == 'GBM':
-                    model_path[i] = GBM_St_from_Rt(x_fake, model_path[i-1]).squeeze()
-                else :
-                    model_path[i] = CIR_St_from_Rt(x_fake, SDE_params['S_bar']).squeeze()
-            
+            Euler, Milstain, Exact_solution, Exact_solution_2, model_path, _ = dist_stock_step(gen_model, process, S_t, SDE_params, dt, steps, paths, use_Z)
             
             Exact_solution = Exact_solution[-1]
             Euler = Euler[-1]
@@ -267,5 +245,111 @@ def ks_plot(config_name, process, SDE_params, use_Z):
     ax2.set_title("1_Waserstain distance")
 
     fig.suptitle(f'Configuration {config_name}', fontsize=15)
-    plt.savefig(f'Plots/KS_1W_{config_name}')
+    plt.savefig(f'Plots/KS_1W/KS_1W_{config_name}')
     plt.show()
+
+def supervised_vs_not_generator_map():
+
+    dt = 1 # he uses 1
+    _, _, _, Z, Returns = gen_paths_GBM(0.1, 0.05, 0.2, dt, 2, 100)
+
+    plt.scatter(Z[-2], Returns[-1], label = "Exact")
+
+    Z_test = torch.randn(100, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+    S_t = torch.full((100,), 0.1).type(torch.FloatTensor).to(device='mps').view(1, -1)
+    dt_tensor = torch.full((100,), dt).type(torch.FloatTensor).to(device='mps').view(1, -1)
+
+    cGBM = torch.load(f'Trained_Models/generator_cGAN_GBM_multiple_dts.pth')
+    cGBM.eval()
+    scGBM = torch.load(f'Trained_Models/generator_scGAN_GBM_multiple_dts.pth')
+    scGBM.eval()
+
+    plt.scatter(Z_test.cpu().detach().numpy(), cGBM.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "supervised")
+    plt.legend()
+    plt.xlabel("Z")
+    plt.ylabel("Generator output")
+    plt.title("GBM")
+    plt.show()
+
+    _, _, _, Z, Returns = gen_paths_CIR(0.1, 0.1, 0.1, 0.1, dt, 2, 100)
+    plt.scatter(Z[-2], Returns[-1], label = "Exact")
+    cCIR = torch.load(f'Trained_Models/generator_cGAN_CIR_multiple_dts.pth')
+    cCIR.eval()
+    scCIR = torch.load(f'Trained_Models/generator_scGAN_CIR_multiple_dts.pth')
+    scCIR.eval()
+
+    plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "conditional")
+
+    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "supervised")
+    plt.legend()
+    plt.xlabel("Z")
+    plt.ylabel("Generator output")
+    plt.title("CIR")
+    plt.show()
+
+def discriminator_map():
+
+    config = 'scGAN_CIR_single_dt'
+
+    Z_test = torch.randn(1000, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+    S_t = torch.full((1000,), 0.1).type(torch.FloatTensor).to(device='mps').view(1, -1)
+    dt = torch.full((1000,), 0.05).type(torch.FloatTensor).to(device='mps').view(1, -1)
+    
+
+    # print(Z_test)
+    min_Z = Z_test.cpu().detach().numpy().min()
+    max_Z = Z_test.cpu().detach().numpy().max()
+    print("->>>", min_Z, max_Z)
+
+    Discriminator = torch.load(f'Trained_Models/discriminator_{config}.pth')
+    Discriminator.eval()
+
+    map = torch.zeros(1000, 1000).type(torch.FloatTensor).to(device=torch.device('mps'))
+    returns = np.linspace(-1.5, 3, 1000)
+    for count, r in enumerate(returns):
+        r_t = torch.full((1000,), r).type(torch.FloatTensor).to(device='mps').view(1, -1)
+        # print(Discriminator.forward(r_t, (S_t, dt, Z_test)).shape)
+        map[count] = Discriminator.forward(r_t, (S_t, dt, Z_test)).view(1, -1)
+
+
+    # print(map)
+    print(map.shape)
+    plt.imshow(map.cpu().detach().numpy(), extent=(min_Z, max_Z, -1.5, 3), origin='lower', aspect='auto', cmap='coolwarm')
+    plt.colorbar(label='Model Output')
+    plt.xlabel("Z")
+    plt.ylabel("Returns")
+    plt.legend()
+    # plt.show()
+
+    _, _, _, Z, Returns = gen_paths_GBM(0.1, 0.05, 0.2, 0.05, 2, 1000)
+    print("->", Z[-2].min(), Z[-2].max())
+
+    plt.scatter(Z[-2], Returns[-1], label = "Exact")
+
+
+    # cGBM = torch.load(f'Trained_Models/generator_cGAN_GBM_single_dt.pth')
+    # cGBM.eval()
+    scGBM = torch.load(f'Trained_Models/generator_{config}.pth')
+    scGBM.eval()
+
+    # conditional_output = cGBM.forward(Z_test, (S_t, dt)).cpu().detach().numpy()
+    supervised_output = scGBM.forward(Z_test, (S_t, dt)).cpu().detach().numpy()
+
+    # plt.scatter(Z_test.cpu().detach().numpy(), conditional_output, label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), supervised_output, label = "supervised")
+    plt.legend()
+    # plt.xlabel("Z")
+    # plt.ylabel("Generator output")
+    plt.show()
+
+
+    
+discriminator_map()
+
+
+# supervised_vs_not_generator_map()
+    
+
+    
+

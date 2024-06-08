@@ -68,10 +68,16 @@ def gen_paths_CIR(S_0, kappa, S_bar, gamma, dt, n_steps, n_paths):
 
     return S_E, S_M, Exact_solution, Z, Return
 
+############## from R_t+1 | S_t to S_t+1 | S_t (returns to stock) ##############
+
 def GBM_St_from_Rt(tensor, GBM_last_step):
     gen_pred = tensor
     gen_pred = torch.exp(gen_pred)
-    gen_pred = gen_pred * GBM_last_step
+    gen_pred = torch.mul(gen_pred, GBM_last_step)
+    # print("IN")
+    # print(tensor.shape)
+    # print(GBM_last_step.shape)
+    # print(gen_pred.shape)
     return gen_pred.T
 
 def CIR_St_from_Rt(tensor, S_bar):
@@ -80,6 +86,32 @@ def CIR_St_from_Rt(tensor, S_bar):
     gen_pred = gen_pred * S_bar
     gen_pred = torch.abs(gen_pred)
     return gen_pred
+
+def dist_stock_step(gen_model, process, S_t, SDE_params, dt, steps, paths, use_Z):
+    if process == 'GBM':
+        Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
+        _, _, Exact_solution_2, _, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
+    else :
+
+        Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
+        _, _, Exact_solution_2, _, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
+    
+    c_dt = torch.full((1, paths), dt).type(torch.FloatTensor).to(device='mps')
+    Returns_torch = torch.from_numpy(Returns).type(torch.FloatTensor).to(device=torch.device('mps'))
+    Z_torch =  torch.from_numpy(Z).type(torch.FloatTensor).to(device=torch.device('mps'))
+    model_path = torch.full((steps, paths), S_t).type(torch.FloatTensor).to(device=torch.device('mps'))
+    for i in range(1,steps):
+        c_previous = Returns_torch[i-1].view(1, -1)
+        x_random = Z_torch[i-1].view(1, -1) if use_Z else torch.randn(paths, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+        x_fake = gen_model.forward(x_random, (c_previous, c_dt)).view(1, -1)
+        if process == 'GBM':
+            model_path[i] = GBM_St_from_Rt(x_fake, model_path[i-1]).view(1, -1)
+        else :
+            model_path[i] = CIR_St_from_Rt(x_fake, SDE_params['S_bar']).view(1, -1)
+
+    return Euler, Milstain, Exact_solution, Exact_solution_2, model_path, Z
+
+############## Make stock ##############
 
 def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns = None, Z_BM = None, my_device = 'mps'): 
     """
@@ -110,11 +142,20 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
             input = G_paths[step_inx].view(1, -1)
 
         if process == 'GBM':
-            gen_pred = GBM_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), G_paths[step_inx])
+            gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
+            gen_pred = torch.exp(gen_pred)
+            gen_pred = gen_pred * G_paths[step_inx]
+            # gen_pred = GBM_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), G_paths[step_inx])
 
         elif process == 'CIR' : 
-            gen_pred = CIR_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), S_bar)
+            gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
+            gen_pred = gen_pred + 1
+            gen_pred = gen_pred * S_bar
+            gen_pred = torch.abs(gen_pred)
+            # gen_pred = CIR_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), S_bar)
 
+        # print(torch.squeeze(gen_pred).shape)
+        # print(G_paths[step_inx+1].shape)
         G_paths[step_inx+1] = torch.squeeze(gen_pred)
 
     return G_paths.cpu().detach().numpy()
@@ -149,7 +190,7 @@ if __name__ == '__main__':
     log_freq = config['log_freq']
     use_Z = config['use_Z']
 
-    paths = 1 # dont' do two paths because of line 19/20 (the normalization)
+    paths = 5 # dont' do two paths because of line 19/20 (the normalization)
 
 
     if process == 'GBM':
@@ -179,6 +220,6 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    
+
 
 

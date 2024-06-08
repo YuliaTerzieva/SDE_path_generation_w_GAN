@@ -9,7 +9,7 @@ def load_config(filepath, config_key):
     return configs[config_key]
 
 # Load the specific configuration
-config_key = 'config_8'
+config_key = 'config_4'
 config = load_config('parameters.yaml', config_key)
 
 # Access the variables
@@ -39,7 +39,7 @@ np.random.seed(42)
 # We first train the networks
 # D_losses, G_losses = train_network(config_name, process, S_0, SDE_params, n_steps, n_paths, dt, number_data_points, epochs, batch_size, advancing_C, log_freq, use_Z, multiple_dt)
 
-ks_plot(config_name, process, SDE_params, use_Z)
+# ks_plot(config_name, process, S_0, SDE_params, use_Z)
 
 # steps_weak_stong = np.arange(20, 101, 20)
 # paths_weak_strong = 500
@@ -48,5 +48,17 @@ ks_plot(config_name, process, SDE_params, use_Z)
 # weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params, n_paths, dt, use_Z)
 
 # run the following code iff you have pretrained scGAN and cGAN for CIR multi dt proces :
-ECDF_multiple_dts(process, SDE_params, False)
-ECDF_multiple_dts(process, SDE_params, True)
+# ECDF_multiple_dts(process, SDE_params, False)
+# ECDF_multiple_dts(process, SDE_params, True)
+
+gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
+gen_model.eval()
+
+# Euler, Milstain, Exact_solution, Exact_solution_2, model_path, Z = dist_stock_step(gen_model, process, S_0, SDE_params, dt, 100, 1000, use_Z)
+
+# plt.hist(Exact_solution.flatten(), bins = 50, density=True)
+# plt.hist(model_path.cpu().detach().numpy().flatten(), bins = 50, density=True, alpha = 0.5)
+# plt.show()
+            
+# supervised_vs_not_generator_map()
+discriminator_map()

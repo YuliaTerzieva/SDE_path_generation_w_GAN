@@ -19,7 +19,11 @@ def train_network(config_name, process ,S_0, SDE_params, n_steps, n_paths, dt, n
 
     ### NN initialization ###
     generator = Generator(c = 2).to(device=torch.device(my_device))
-    discriminator = Discriminator(c = 2).to(device=torch.device(my_device))
+    if use_Z :
+        discriminator = Discriminator(c = 3).to(device=torch.device(my_device))
+    else :
+        discriminator = Discriminator(c = 2).to(device=torch.device(my_device))
+
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr = 5 * 1e-4, betas=(0.5, 0.999)) 
     generator_optimizer = torch.optim.Adam(generator.parameters(), lr = 1e-4, betas=(0.5, 0.999))
     loss_function = nn.BCELoss()
@@ -52,10 +56,7 @@ def train_network(config_name, process ,S_0, SDE_params, n_steps, n_paths, dt, n
             c_dt = torch.full((1, batch_size), dt).type(torch.FloatTensor).to(device=my_device) * torch.tensor(num_steps, dtype=torch.float32)
             
             for _ in range(advancing_C):
-                D_pred_real = discriminator.forward(input_real, (c_previous, c_dt))
-                D_loss_real = loss_function(D_pred_real, torch.ones(D_pred_real.size(0), 1))
-        
-                ### Generator noise ###
+                ### Generator noise / Brownian motion ###
                 if use_Z : 
                     if multiple_dt:
                         # Initialize gen_input_noise
@@ -71,7 +72,16 @@ def train_network(config_name, process ,S_0, SDE_params, n_steps, n_paths, dt, n
                     gen_input_noise = torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
 
                 x_fake = generator.forward(gen_input_noise, (c_previous, c_dt)).T
-                D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt))
+                
+                if use_Z :
+                    D_pred_real = discriminator.forward(input_real, (c_previous, c_dt, gen_input_noise))
+                    D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt, gen_input_noise))
+                else :
+                    D_pred_real = discriminator.forward(input_real, (c_previous, c_dt))
+                    D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt))
+                    
+
+                D_loss_real = loss_function(D_pred_real, torch.ones(D_pred_real.size(0), 1))
                 D_loss_fake = loss_function(D_pred_fake, torch.zeros(D_pred_fake.size(0), 1))
         
                 ### Combined losses ###
@@ -89,7 +99,11 @@ def train_network(config_name, process ,S_0, SDE_params, n_steps, n_paths, dt, n
             generator.train()
 
             x_fake = generator.forward(gen_input_noise, (c_previous, c_dt)).T
-            D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt))
+            if use_Z :
+                D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt, gen_input_noise))
+            else :
+                D_pred_fake = discriminator.forward(x_fake, (c_previous, c_dt))
+                
             G_loss = loss_function(D_pred_fake, torch.ones(D_pred_fake.size(0), 1))
             G_losses.append(G_loss.item())
 
