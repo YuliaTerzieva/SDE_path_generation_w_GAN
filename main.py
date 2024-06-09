@@ -9,7 +9,7 @@ def load_config(filepath, config_key):
     return configs[config_key]
 
 # Load the specific configuration
-config_key = 'config_1'
+config_key = 'config_2'
 config = load_config('parameters.yaml', config_key)
 
 # Access the variables
@@ -41,9 +41,10 @@ np.random.seed(42)
 gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
 gen_model.eval()
 
-ECDF_plot(gen_model, config_name, process, SDE_params, use_Z)
+ECDF_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
 
-# ks_plot(config_name, process, S_0, SDE_params, use_Z)
+ks_plot(config_name, process, S_0, SDE_params, use_Z)
+
 # steps_weak_stong = np.arange(20, 101, 20)
 # paths_weak_strong = 500
 # weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, steps_weak_stong, paths_weak_strong, dt, use_Z)

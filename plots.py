@@ -13,33 +13,7 @@ def losses(D_losses, G_losses, config_name):
     plt.savefig(f"Plots/Loss/Loss {config_name}.png")
     plt.show()
 
-def log_returns(actual_log_returns, model, n_steps, n_paths, batch_size, c_dt, config_name, my_device = 'mps'):
-    """
-    actual_log_returns -> tensor 
-    model -> torch model
-    n_steps -> int
-    n_paths -> int
-    """
-    pred_Log_Return = np.zeros((n_steps, n_paths))
-    for i in range(n_steps):
-        c_previous = actual_log_returns[i].view(1, -1)
-        x_random = torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-        x_fake = model.forward(x_random, (c_previous, c_dt)).view(1, -1)
-        pred_Log_Return[i] = x_fake.cpu().detach().numpy()
-
-    plt.figure()
-    plt.hist(actual_log_returns.cpu().detach().numpy().flatten(), bins = 50, alpha = 0.8, density=True, color = 'lightblue', label="Real")
-    plt.hist(pred_Log_Return.flatten(), bins = 50, alpha = 0.5, density = True, color = 'palevioletred', label="Generated")
-    plt.legend()
-    plt.title(f"Log Returns {config_name}")
-    plt.savefig(f"Plots/Log Returns/Log Returns {config_name}")
-    plt.show()
-
-    plt.scatter(x_random.cpu().detach().numpy(), x_fake.cpu().detach().numpy())
-    plt.show()
-
-def ECDF_plot(gen_model, config_name, process, SDE_params, use_Z,  my_device = 'mps'):
-    S_t = 0.1
+def ECDF_plot(gen_model, config_name, process, S_t, SDE_params, use_Z,  my_device = 'mps'):
     dts = [0.1, 0.5, 1, 2]
     points = 10_000
     first_step = torch.full((points, ), S_t).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
@@ -337,7 +311,30 @@ def discriminator_map():
     # # plt.ylabel("Generator output")
     # plt.show()
 
+def log_returns(actual_log_returns, model, n_steps, n_paths, batch_size, c_dt, config_name, my_device = 'mps'):
+    """
+    actual_log_returns -> tensor 
+    model -> torch model
+    n_steps -> int
+    n_paths -> int
+    """
+    pred_Log_Return = np.zeros((n_steps, n_paths))
+    for i in range(n_steps):
+        c_previous = actual_log_returns[i].view(1, -1)
+        x_random = torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
+        x_fake = model.forward(x_random, (c_previous, c_dt)).view(1, -1)
+        pred_Log_Return[i] = x_fake.cpu().detach().numpy()
 
+    plt.figure()
+    plt.hist(actual_log_returns.cpu().detach().numpy().flatten(), bins = 50, alpha = 0.8, density=True, color = 'lightblue', label="Real")
+    plt.hist(pred_Log_Return.flatten(), bins = 50, alpha = 0.5, density = True, color = 'palevioletred', label="Generated")
+    plt.legend()
+    plt.title(f"Log Returns {config_name}")
+    plt.savefig(f"Plots/Log Returns/Log Returns {config_name}")
+    plt.show()
+
+    plt.scatter(x_random.cpu().detach().numpy(), x_fake.cpu().detach().numpy())
+    plt.show()
 
     
 
