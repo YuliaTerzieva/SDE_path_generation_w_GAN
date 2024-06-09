@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import yaml
+import random
 
 ############## GBM process ##############
 
@@ -111,6 +112,40 @@ def dist_stock_step(gen_model, process, S_t, SDE_params, dt, steps, paths, use_Z
 
     return Euler, Milstain, Exact_solution, Exact_solution_2, model_path, Z
 
+############## gen training dataset ##############
+def generate_training_data(process, S_0, SDE_params, dts, number_data_points, T):
+
+    training_data = []
+    for dt in dts:
+        print('\033[35m', f"---> Starting generation of paths with dt of {dt}")
+        n_steps = int(T/dt + 1)
+        n_paths = 1_000
+
+        if process == 'CIR' : 
+            _, _, _, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, n_steps + 1, n_paths) 
+
+        if process == 'GBM' : 
+            _, _, _, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps + 1, n_paths)
+        
+        first_steps = Returns[:-1, :]  # All rows except the last one
+        second_steps = Returns[1:, :]  # All rows except the first one
+        corresponding_Z = Z[:-1, :]    # Corresponding Z values for the first steps
+
+        corresponding_dt = np.full(first_steps.shape, dt)
+
+        # Stack the arrays along a new axis to create tuples
+        stacked_tuples = np.stack((first_steps, second_steps, corresponding_Z, corresponding_dt), axis=-1)
+
+        # Flatten the stacked_tuples to a list of tuples
+        tuple_list = [tuple(stacked_tuples[i, j]) for i in range(stacked_tuples.shape[0]) for j in range(stacked_tuples.shape[1])]
+
+        # Sample 12,500 tuples with replacement
+        sampled_tuples = random.choices(tuple_list, k=int(number_data_points / len(dts)))
+        training_data.extend(sampled_tuples)
+    
+    random.shuffle(training_data)
+    return training_data
+
 ############## Make stock ##############
 
 def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns = None, Z_BM = None, my_device = 'mps'): 
@@ -160,6 +195,10 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
 
     return G_paths.cpu().detach().numpy()
 
+def test(E):
+    plt.plot(E[:, :100])
+    plt.show()
+
 if __name__ == '__main__':
 
     # Loading parameters
@@ -169,7 +208,7 @@ if __name__ == '__main__':
         return configs[config_key]
 
     # Load the specific configuration
-    config_key = 'config_4'
+    config_key = 'config_2'
     config = load_config('parameters.yaml', config_key)
 
     # Access the variables
@@ -219,7 +258,5 @@ if __name__ == '__main__':
     plt.savefig(f"Plots/Generated vs actual paths_{config_name}")
     plt.legend()
     plt.show()
-
-
 
 
