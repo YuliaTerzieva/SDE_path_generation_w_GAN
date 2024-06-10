@@ -28,7 +28,7 @@ def train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_d
     print('\033[35m', "-> Starting with the data generation \n")
     ### Training data ###
     list_training_data_tuples = generate_training_data(process, S_0, SDE_params, dts, number_data_points, T)
-    # the list above has tuples (S_k, S_k+1, Z_dt)
+    # the list above has tuples (R_t, R_t+1, Z, dt)
     print('\033[35m', "-> Finished with data generation \n", '\033[30m')
 
     training_data_tensor = torch.tensor(list_training_data_tuples, dtype=torch.float32).to(device=my_device)

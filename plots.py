@@ -43,127 +43,21 @@ def ECDF_plot(gen_model, config_name, process, S_t, SDE_params, use_Z,  my_devic
     plt.savefig(f"Plots/ECDF/ECDF_{config_name}")
     plt.show()
 
-def weak_stong_error_gen_paths(config_name, process, S_0, SDE_params, n_steps_array, n_paths, dt, use_Z = False):
-    np.random.seed(42)
-
-    error_Weak_one_step = np.zeros((len(n_steps_array)))
-    error_Strong_one_step = np.zeros((len(n_steps_array)))
-    # error_Weak_self_gen = np.zeros((len(n_steps_array)))
-    # error_Strong_self_gen = np.zeros((len(n_steps_array)))
-
-    for i, n_steps in enumerate(n_steps_array):
-        if process == 'GBM':
-            _, _, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, n_paths)
-            S_bar = None
-        elif process == 'CIR' : 
-            _, _, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, n_steps, n_paths)
-            S_bar = SDE_params['S_bar']
-
-        gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
-        gen_model.eval()
-
-        if use_Z :
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
-            # model_paths_self_gen =  gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, Z_BM=Z)
-        else :
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns)
-            # model_paths_self_gen =  gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths)
-        
-        error_Weak_one_step[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_one_step[-1]))
-        error_Strong_one_step[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_one_step[-1]))
-        # error_Weak_self_gen[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_self_gen[-1]))
-        # error_Strong_self_gen[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_self_gen[-1]))
-
-    plt.plot(n_steps_array, error_Weak_one_step, linestyle='dashed', label = 'Weak error one step')
-    plt.plot(n_steps_array, error_Strong_one_step, linestyle='dashed', label = 'Strong error one step')
-    # plt.plot(n_steps_array, error_Weak_self_gen, label = 'Weak error self gen')
-    # plt.plot(n_steps_array, error_Strong_self_gen, label = 'Strong error self gen')
-    plt.xlabel("number of steps")
-    plt.title(f"Weak_Stong {config_name}")
-    plt.legend()
-    plt.savefig(f"Plots/Weak_Stong {config_name}")
-    plt.show()
-
-def weak_stong_error_gen_paths_multiple_dt(config_name, process, S_0, SDE_params, n_paths, dt, use_Z = False):
-    np.random.seed(42)
-
-    possible_dt_steps = np.array([1, 2, 4, 8, 10, 20, 40])
-
-    error_Weak_GAN = np.zeros((len(possible_dt_steps)))
-    error_Strong_GAN = np.zeros((len(possible_dt_steps)))
-    error_Weak_Euler = np.zeros((len(possible_dt_steps)))
-    error_Strong_Euler = np.zeros((len(possible_dt_steps)))
-    error_Weak_Milstain = np.zeros((len(possible_dt_steps)))
-    error_Strong_Milstain = np.zeros((len(possible_dt_steps)))
-
-    for i, n_dt_step in enumerate(possible_dt_steps):
-        n_steps = int(2 / (dt*n_dt_step)) + 1 
-
-        print("dt = ", dt*n_dt_step)
-        print("n_steps", 2 / (dt*n_dt_step), n_steps)
-
-        if process == 'GBM':
-            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt*n_dt_step, n_steps, n_paths)
-            S_bar = None
-        elif process == 'CIR' : 
-            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt*n_dt_step, n_steps, n_paths)
-            S_bar = SDE_params['S_bar']
-
-        gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
-        gen_model.eval()
-
-        if use_Z :
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt*n_dt_step, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
-        else :
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt*n_dt_step, n_steps, n_paths, actual_returns=Returns)
-        
-        error_Weak_GAN[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_one_step[-1]))
-        error_Strong_GAN[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_one_step[-1]))
-        error_Weak_Euler[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(Euler[-1]))
-        error_Strong_Euler[i] = np.mean(np.abs(Exact_solution[-1]-Euler[-1]))
-        error_Weak_Milstain[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(Milstain[-1]))
-        error_Strong_Milstain[i] = np.mean(np.abs(Exact_solution[-1]-Milstain[-1]))
-
-    print(error_Weak_GAN)
-    print(error_Strong_GAN)
-    print(error_Weak_Euler)
-    print(error_Strong_Euler)
-    print(error_Weak_Milstain)
-    print(error_Strong_Milstain)
-
-    plt.plot(possible_dt_steps*dt, error_Weak_GAN, color = 'palevioletred', label = 'Weak error GAN')
-    plt.plot(possible_dt_steps*dt, error_Strong_GAN, color = 'palevioletred', linestyle='dashed', label = 'Strong error GAN')
-    plt.plot(possible_dt_steps*dt, error_Weak_Euler,  color = 'darkblue', label = 'Weak error Euler')
-    plt.plot(possible_dt_steps*dt, error_Strong_Euler,  color = 'darkblue', linestyle='dashed', label = 'Strong error Euler')
-    plt.plot(possible_dt_steps*dt, error_Weak_Milstain, color = 'lightblue', label = 'Weak error Milstain')
-    plt.plot(possible_dt_steps*dt, error_Strong_Milstain, color = 'lightblue', linestyle='dashed', label = 'Strong error Milstain')
-    plt.xlabel("$\delta t$")
-    plt.title(f"Weak_Stong {config_name}")
-    plt.legend()
-    plt.savefig(f"Plots/Weak_Stong/Weak_Stong {config_name}")
-    plt.show()
-
-def ks_plot(config_name, process, S_t, SDE_params, use_Z):
+def ks_plot(gen_model, config_name, process, S_t, SDE_params, use_Z, my_device = 'mps'):
     torch.random.manual_seed(42)
     np.random.seed(42)
     
-    gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
-    gen_model.eval()
-
-    N_test = [100, 1_000, 10_000, 100_000]
-    number_of_repetitions = 5
+    N_test = [100, 300, 600, 1_000, 3_000, 6_000, 10_000, 30_000, 60_000, 100_000]
+    number_of_repetitions = 10
 
     KS = np.zeros((len(N_test), number_of_repetitions, 4))
     one_W = np.zeros((len(N_test), number_of_repetitions, 4))
 
-    dt = 0.05
-
+    dt = 0.4
+    
     for count, N in enumerate(N_test):
-        
-        steps = 10
-        paths = int(N/10)
         for rep in range(number_of_repetitions):
-            Euler, Milstain, Exact_solution, Exact_solution_2, model_path, _ = dist_stock_step(gen_model, process, S_t, SDE_params, dt, steps, paths, use_Z)
+            Euler, Milstain, Exact_solution, Exact_solution_2, model_path, _ = dist_stock_step(gen_model, process, S_t, SDE_params, dt, 2, N, use_Z)
             
             Exact_solution = Exact_solution[-1]
             Euler = Euler[-1]
@@ -174,7 +68,6 @@ def ks_plot(config_name, process, S_t, SDE_params, use_Z):
             M_ks = stats.ks_2samp(Milstain, Exact_solution)[0]
             M_one_W_distance = stats.wasserstein_distance(Milstain, Exact_solution)
 
-            model_path = model_path[-1].cpu().detach().numpy()
             GAN_ks = stats.ks_2samp(model_path, Exact_solution)[0]
             GAN_one_W_distance = stats.wasserstein_distance(model_path, Exact_solution)
 
@@ -184,37 +77,83 @@ def ks_plot(config_name, process, S_t, SDE_params, use_Z):
 
             KS[count, rep] = [E_ks, M_ks, GAN_ks, Exact_solution_ks]
             one_W[count, rep] = [E_one_W_distance, M_one_W_distance, GAN_one_W_distance, Exact_solution_one_W_distance]
-        print(f"Done with N = {N}, repetition = {rep}")
 
     labels = ["Euler", 'Milstain', 'GAN', "Exact"]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2)
 
     KS_means = KS.mean(axis=1)
     KS_std = KS.std(axis=1)
     for i in range(KS_means.shape[1]):
-        ax1.fill_between(N_test, KS_means[:, i] - KS_std[:, i], KS_means[:, i] + KS_std[:, i], alpha=0.3)
-        ax1.plot(N_test, KS_means[:, i], label = labels[i])
+        plt.fill_between(N_test, KS_means[:, i] - KS_std[:, i], KS_means[:, i] + KS_std[:, i], alpha=0.3)
+        plt.plot(N_test, KS_means[:, i], label = labels[i])
     
-    ax1.legend()
-    ax1.set_xscale('log')
-    ax1.set_yscale('log')
-    ax1.set_title("KS statistics")
+    plt.legend()
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.title("KS statistics")
+    plt.savefig(f'Plots/KS_1W/KS_{config_name}')
+    plt.show()
+    
 
     one_W_means = one_W.mean(axis=1)
     one_W_std = one_W.std(axis=1)
     for i in range(one_W_means.shape[1]):
-        ax2.fill_between(N_test, one_W_means[:, i] - one_W_std[:, i], one_W_means[:, i] + one_W_std[:, i], alpha=0.3)
-        ax2.plot(N_test, one_W_means[:, i], label = labels[i])
+        plt.fill_between(N_test, one_W_means[:, i] - one_W_std[:, i], one_W_means[:, i] + one_W_std[:, i], alpha=0.3)
+        plt.plot(N_test, one_W_means[:, i], label = labels[i])
 
-    ax2.legend()
-    ax2.set_xscale('log')
-    ax2.set_yscale('log')
-    ax2.set_title("1_Waserstain distance")
-
-    fig.suptitle(f'Configuration {config_name}', fontsize=15)
-    plt.savefig(f'Plots/KS_1W/KS_1W_{config_name}')
+    plt.legend()
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.title("1_Waserstain distance")
+    plt.savefig(f'Plots/KS_1W/1W_{config_name}')
     plt.show()
+
+def weak_stong_error(config_name, process, S_0, SDE_params, dts, T, n_paths, use_Z = False):
+    np.random.seed(42)
+
+    error_Weak_GAN = np.zeros((len(dts)))
+    error_Strong_GAN = np.zeros((len(dts)))
+    error_Weak_Euler = np.zeros((len(dts)))
+    error_Strong_Euler = np.zeros((len(dts)))
+    error_Weak_Milstain = np.zeros((len(dts)))
+    error_Strong_Milstain = np.zeros((len(dts)))
+
+    for i, dt in enumerate(dts):
+        n_steps = int(T/dt)+1
+        if process == 'GBM':
+            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, n_paths)
+            S_bar = None
+        elif process == 'CIR' : 
+            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, n_steps, n_paths)
+            S_bar = SDE_params['S_bar']
+
+        gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
+        gen_model.eval()
+
+        if use_Z :
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
+        else :
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns)
+        
+        error_Weak_GAN[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_one_step[-1]))
+        error_Strong_GAN[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_one_step[-1]))
+        error_Weak_Euler[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(Euler[-1]))
+        error_Strong_Euler[i] = np.mean(np.abs(Exact_solution[-1]-Euler[-1]))
+        error_Weak_Milstain[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(Milstain[-1]))
+        error_Strong_Milstain[i] = np.mean(np.abs(Exact_solution[-1]-Milstain[-1]))
+
+    plt.plot(dts, error_Weak_GAN, color = 'palevioletred', label = 'Weak error GAN')
+    plt.plot(dts, error_Strong_GAN, color = 'palevioletred', linestyle='dashed', label = 'Strong error GAN')
+    plt.plot(dts, error_Weak_Euler,  color = 'darkblue', label = 'Weak error Euler')
+    plt.plot(dts, error_Strong_Euler,  color = 'darkblue', linestyle='dashed', label = 'Strong error Euler')
+    plt.plot(dts, error_Weak_Milstain, color = 'lightblue', label = 'Weak error Milstain')
+    plt.plot(dts, error_Strong_Milstain, color = 'lightblue', linestyle='dashed', label = 'Strong error Milstain')
+    plt.xlabel("$\Delta t$")
+    plt.title(f"Weak_Stong {config_name}")
+    plt.legend()
+    plt.savefig(f"Plots/Weak_Strong/Weak_Strong {config_name}")
+    plt.show()
+
 
 def supervised_vs_not_generator_map():
 
@@ -256,34 +195,23 @@ def supervised_vs_not_generator_map():
     plt.title("CIR")
     plt.show()
 
-def discriminator_map():
+def discriminator_map(gen_model, config_name, S_t, my_device = 'mps'):
+    points = 1_000
 
-    config = 'scGAN_GBM'
+    dt = 1
+    dt_torch = torch.full((points, ), dt).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
+    S_t_torch = torch.full((points, ), S_t).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
 
-    Z_test = torch.randn(1000, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
-    S_t = torch.full((1000,), 1).type(torch.FloatTensor).to(device='mps').view(1, -1)
-    dt = torch.full((1000,), 0.05).type(torch.FloatTensor).to(device='mps').view(1, -1)
-    
-
-    # print(Z_test)
-    min_Z = Z_test.cpu().detach().numpy().min()
-    max_Z = Z_test.cpu().detach().numpy().max()
-    print("->>>", min_Z, max_Z)
-
-    Discriminator = torch.load(f'Trained_Models/discriminator_{config}.pth')
-    Discriminator.eval()
-
-    map = torch.zeros(1000, 1000).type(torch.FloatTensor).to(device=torch.device('mps'))
-    returns = np.linspace(-1.5, 3, 1000)
+    Z_torch = torch.randn(points, ).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
+     
+    map = torch.zeros(points, points).type(torch.FloatTensor).to(device=torch.device('mps'))
+    returns = np.linspace(-1.5, 3, points)
     for count, r in enumerate(returns):
-        r_t = torch.full((1000,), r).type(torch.FloatTensor).to(device='mps').view(1, -1)
-        # print(Discriminator.forward(r_t, (S_t, dt, Z_test)).shape)
-        map[count] = Discriminator.forward(r_t, (S_t, dt, Z_test)).view(1, -1)
+        r_t = torch.full((points, ), r).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
+        map[count] = gen_model.forward(r_t, (S_t_torch, dt_torch, Z_torch)).view(1, -1)
 
 
-    # print(map)
-    print(map.shape)
-    plt.imshow(map.cpu().detach().numpy(), extent=(min_Z, max_Z, -1.5, 3), origin='lower', aspect='auto', cmap='coolwarm')
+    plt.imshow(map.cpu().detach().numpy(), extent=(-3.5, 3.5, -1.5, 3), origin='lower', aspect='auto', cmap='coolwarm')
     plt.colorbar(label='Model Output')
     plt.xlabel("Z")
     plt.ylabel("Returns")
