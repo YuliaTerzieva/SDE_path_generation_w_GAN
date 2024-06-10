@@ -30,7 +30,7 @@ def gen_paths_GBM(S_0, mu, sigma, dt, n_steps, n_paths):
 
         Log_Return[step_inx+1, :] = np.log(np.divide(Exact_solution[step_inx+1, :], Exact_solution[step_inx, :]))
 
-    return S_E, S_M, Exact_solution, Z[:-1, :], Log_Return[1:, :]
+    return S_E, S_M, Exact_solution, Z, Log_Return
 
 ############## CIR process ##############
 
@@ -74,10 +74,6 @@ def GBM_St_from_Rt(tensor, GBM_last_step):
     gen_pred = tensor
     gen_pred = torch.exp(gen_pred)
     gen_pred = torch.mul(gen_pred, GBM_last_step)
-    # print("IN")
-    # print(tensor.shape)
-    # print(GBM_last_step.shape)
-    # print(gen_pred.shape)
     return gen_pred
 
 def CIR_St_from_Rt(tensor, S_bar):
@@ -92,7 +88,6 @@ def dist_stock_step(gen_model, process, S_t, SDE_params, dt, steps, paths, use_Z
         Euler, Milstain, Exact_solution, Z, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
         _, _, Exact_solution_2, _, _ = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, steps, paths)
     else :
-
         Euler, Milstain, Exact_solution, Z, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
         _, _, Exact_solution_2, _, _ = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, steps, paths)
     
@@ -100,11 +95,13 @@ def dist_stock_step(gen_model, process, S_t, SDE_params, dt, steps, paths, use_Z
     first_step = torch.full((paths, ), S_t).type(torch.FloatTensor).to(device='mps').view(1, -1)
     Z_torch =  torch.from_numpy(Z[-1]).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
 
-    x_random = Z_torch if use_Z else torch.randn(paths,).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
-    x_fake = gen_model.forward(x_random, (first_step, c_dt))
     if process == 'GBM':
+        x_random = Z_torch if use_Z else torch.randn(paths,).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+        x_fake = gen_model.forward(x_random, [c_dt])
         model_path = GBM_St_from_Rt(x_fake, S_t).cpu().detach().numpy().squeeze()
-    else :
+    elif process == 'CIR':
+        x_random = Z_torch if use_Z else torch.randn(paths,).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+        x_fake = gen_model.forward(x_random, [first_step, c_dt])
         model_path = CIR_St_from_Rt(x_fake, SDE_params['S_bar']).cpu().detach().numpy().squeeze()
 
     return Euler, Milstain, Exact_solution, Exact_solution_2, model_path, Z
@@ -130,8 +127,12 @@ def generate_training_data(process, S_0, SDE_params, dts, number_data_points, T)
 
         corresponding_dt = np.full(first_steps.shape, dt)
 
-        # Stack the arrays along a new axis to create tuples
-        stacked_tuples = np.stack((first_steps, second_steps, corresponding_Z, corresponding_dt), axis=-1)
+        if process == 'GBM' :
+            stacked_tuples = np.stack((second_steps, corresponding_Z, corresponding_dt), axis=-1)
+
+        elif process == 'CIR':
+            # Stack the arrays along a new axis to create tuples
+            stacked_tuples = np.stack((first_steps, second_steps, corresponding_Z, corresponding_dt), axis=-1)
 
         # Flatten the stacked_tuples to a list of tuples
         tuple_list = [tuple(stacked_tuples[i, j]) for i in range(stacked_tuples.shape[0]) for j in range(stacked_tuples.shape[1])]
@@ -167,24 +168,16 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
     actual_returns = torch.from_numpy(actual_returns).type(torch.FloatTensor).to(device=torch.device(my_device))
 
     for step_inx in range(n_steps-1):
-        input = actual_returns[step_inx].view(1, -1)
-        
         if process == 'GBM':
-            gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt)).T
+            gen_pred = gen_model(Z[step_inx].view(1, -1), [c_dt]).T
             gen_pred = torch.exp(gen_pred)
             gen_pred = gen_pred * G_paths[step_inx]
-            # gen_pred = GBM_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), G_paths[step_inx])
+            G_paths[step_inx+1] = torch.squeeze(gen_pred)
 
         elif process == 'CIR' : 
-            # gen_pred = gen_model(Z[step_inx].view(1, -1), (input, c_dt))
-            # gen_pred = gen_pred + 1
-            # gen_pred = gen_pred * S_bar
-            # gen_pred = torch.abs(gen_pred).T
+            input = actual_returns[step_inx].view(1, -1)
             gen_pred = CIR_St_from_Rt(gen_model(Z[step_inx].view(1, -1), (input, c_dt)), S_bar).T
-
-        # print(torch.squeeze(gen_pred).shape)
-        # print(G_paths[step_inx+1].shape)
-        G_paths[step_inx+1] = torch.squeeze(gen_pred)
+            G_paths[step_inx+1] = torch.squeeze(gen_pred)
 
     return G_paths.cpu().detach().numpy()
 
@@ -242,8 +235,8 @@ if __name__ == '__main__':
     # plt.legend()
     # plt.show()
 
-    # model_paths_one_step = np.concatenate([model_paths_one_step[0:1], model_paths_one_step[2:]])
-    plt.plot(Exact_solution, color = 'lightblue')
+    model_paths_one_step = np.concatenate([model_paths_one_step[0:1], model_paths_one_step[2:]])
+    plt.plot(Exact_solution[:-1], color = 'lightblue')
     plt.plot([], [], color = 'lightblue', label = "Exact")
     plt.plot(model_paths_one_step, linestyle='dashed', color = 'palevioletred')
     plt.plot([], [], color = 'palevioletred', label = "Generated one-step")

@@ -28,7 +28,8 @@ def train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_d
     print('\033[35m', "-> Starting with the data generation \n")
     ### Training data ###
     list_training_data_tuples = generate_training_data(process, S_0, SDE_params, dts, number_data_points, T)
-    # the list above has tuples (R_t, R_t+1, Z, dt)
+    # the list above has tuples (R_t+1, Z, dt) for the GBM process
+    # the list above has tuples (R_t, R_t+1, Z, dt) for the CIR process
     print('\033[35m', "-> Finished with data generation \n", '\033[30m')
 
     training_data_tensor = torch.tensor(list_training_data_tuples, dtype=torch.float32).to(device=my_device)
@@ -36,11 +37,18 @@ def train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_d
     dataloader = DataLoader(dataset, batch_size=batch_size)
 
     ### NN initialization ###
-    generator = Generator(c = 2).to(device=torch.device(my_device))
-    if use_Z :
-        discriminator = Discriminator(c = 3).to(device=torch.device(my_device))
-    else :
-        discriminator = Discriminator(c = 2).to(device=torch.device(my_device))
+    if process == 'GBM':
+        generator = Generator(c = 1).to(device=torch.device(my_device))
+        if use_Z :
+            discriminator = Discriminator(c = 2).to(device=torch.device(my_device))
+        else :
+            discriminator = Discriminator(c = 1).to(device=torch.device(my_device))
+    elif process == "CIR":
+        generator = Generator(c = 2).to(device=torch.device(my_device))
+        if use_Z :
+            discriminator = Discriminator(c = 3).to(device=torch.device(my_device))
+        else :
+            discriminator = Discriminator(c = 2).to(device=torch.device(my_device))
 
     discriminator_optimizer = torch.optim.Adam(discriminator.parameters(), lr = 5 * 1e-4, betas=(0.5, 0.999)) 
     generator_optimizer = torch.optim.Adam(generator.parameters(), lr = 1e-4, betas=(0.5, 0.999))
@@ -57,10 +65,16 @@ def train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_d
         for batch in dataloader:
             real_data = batch[0].to(my_device)
 
-            first_steps = real_data[:, 0].view(1, -1)
-            second_steps = real_data[:, 1].view(1, -1)
-            Z = real_data[:, 2].view(1, -1)
-            dts = real_data[:, 3].view(1, -1)
+            if process == 'GBM':
+                second_steps = real_data[:, 0].view(1, -1)
+                Z = real_data[:, 1].view(1, -1)
+                dts = real_data[:, 2].view(1, -1)
+            elif process == 'CIR':
+                first_steps = real_data[:, 0].view(1, -1)
+                second_steps = real_data[:, 1].view(1, -1)
+                Z = real_data[:, 2].view(1, -1)
+                dts = real_data[:, 3].view(1, -1)
+
 
             real_labels = torch.ones(batch_size, 1).to(device=my_device)
             fake_labels = torch.zeros(batch_size, 1).to(device=my_device)
@@ -69,16 +83,25 @@ def train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_d
             discriminator.train()
             generator.eval()
 
+            ### real ###
+            if process == 'GBM':
+                conditions_D = [dts, Z] if use_Z else [dts]
+                conditions_G = [dts]
+            if process == 'CIR':
+                conditions_D = [first_steps, dts, Z] if use_Z else [first_steps, dts]
+                conditions_G = [first_steps, dts]
+            # print(discriminator)
+            # print(second_steps.shape, conditions_D.shape)
+
             for _ in range(advancing_C):
-                ### real ###
-                conditions = (first_steps, dts, Z) if use_Z else (first_steps, dts)
-                D_pred_real = discriminator.forward(second_steps, conditions)
+                
+                D_pred_real = discriminator.forward(second_steps, conditions_D)
                 D_loss_real = loss_function(D_pred_real, real_labels)
 
                 ### fake ###
                 noise = Z if use_Z else torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-                fake_data = generator.forward(noise, (first_steps, dts)).view(1, -1)
-                D_pred_fake = discriminator.forward(fake_data, conditions)
+                fake_data = generator.forward(noise, conditions_G).view(1, -1)
+                D_pred_fake = discriminator.forward(fake_data, conditions_D)
                 D_loss_fake = loss_function(D_pred_fake, fake_labels)
 
                 ### Combined losses ###
@@ -97,8 +120,8 @@ def train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_d
 
             noise = Z if use_Z else torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
             
-            fake_data = generator.forward(noise, (first_steps, dts)).view(1, -1)
-            D_pred_fake = discriminator.forward(fake_data, conditions) 
+            fake_data = generator.forward(noise, conditions_G).view(1, -1)
+            D_pred_fake = discriminator.forward(fake_data, conditions_D) 
             G_loss = loss_function(D_pred_fake, real_labels)
             G_losses.append(G_loss.item())
 

@@ -9,7 +9,7 @@ def load_config(filepath, config_key):
     return configs[config_key]
 
 # Load the specific configuration
-config_key = 'config_5'
+config_key = 'config_6'
 config = load_config('parameters.yaml', config_key)
 
 # Access the variables
@@ -33,21 +33,21 @@ torch.random.manual_seed(42)
 np.random.seed(42)
 
 ### We first train the networks ###
-# print('\033[35m'+ f"I'm starting training of {config_name} with process {process} w/ parameters {SDE_params} \
-#       \n the training is on {number_data_points} points, note using Z is {use_Z}" + '\033[30m')
-# D_losses, G_losses = train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_data_points, \
-#                                    epochs, batch_size, advancing_C, log_freq)
+print('\033[35m'+ f"I'm starting training of {config_name} with process {process} w/ parameters {SDE_params} \
+      \n the training is on {number_data_points} points, note using Z is {use_Z}" + '\033[30m')
+D_losses, G_losses = train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_data_points, \
+                                   epochs, batch_size, advancing_C, log_freq)
 
 gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
 gen_model.eval()
 
-# ECDF_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
+ECDF_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
 
-# torch.random.manual_seed(42)
-# np.random.seed(42)
-# ks_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
+torch.random.manual_seed(42)
+np.random.seed(42)
+ks_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
 
-weak_stong_error(config_name, process, S_0, SDE_params, dts, T, batch_size, use_Z = False)
+weak_stong_error(gen_model, config_name, process, S_0, SDE_params, dts, T, batch_size, use_Z)
 
 
 # Euler, Milstain, Exact_solution, Exact_solution_2, model_path, Z = dist_stock_step(gen_model, process, S_0, SDE_params, dt, 100, 1000, use_Z)

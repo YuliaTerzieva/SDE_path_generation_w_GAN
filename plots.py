@@ -33,7 +33,10 @@ def ECDF_plot(gen_model, config_name, process, S_t, SDE_params, use_Z,  my_devic
         noise = Z if use_Z else torch.randn(points, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
         
         dt_torch = torch.full((points, ), dt).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-        model_dist = gen_model(noise, (first_step, dt_torch))
+        if process == 'GBM':
+            model_dist = gen_model(noise, [dt_torch])
+        elif process == 'CIR':
+            model_dist = gen_model(noise, [first_step, dt_torch])
         ecdf = ECDF(model_dist.cpu().detach().numpy().flatten())
         plt.plot(ecdf.x, ecdf.y, label = f'$\Delta t = {dt}$')
     
@@ -108,7 +111,7 @@ def ks_plot(gen_model, config_name, process, S_t, SDE_params, use_Z, my_device =
     plt.savefig(f'Plots/KS_1W/1W_{config_name}')
     plt.show()
 
-def weak_stong_error(config_name, process, S_0, SDE_params, dts, T, n_paths, use_Z = False):
+def weak_stong_error(gen_model, config_name, process, S_t, SDE_params, dts, T, n_paths, use_Z):
     np.random.seed(42)
 
     error_Weak_GAN = np.zeros((len(dts)))
@@ -121,19 +124,19 @@ def weak_stong_error(config_name, process, S_0, SDE_params, dts, T, n_paths, use
     for i, dt in enumerate(dts):
         n_steps = int(T/dt)+1
         if process == 'GBM':
-            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_0, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, n_paths)
+            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_GBM(S_t, SDE_params['mu'], SDE_params['sigma'], dt, n_steps, n_paths)
             S_bar = None
         elif process == 'CIR' : 
-            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_0, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, n_steps, n_paths)
+            Euler, Milstain, Exact_solution, Z, Returns = gen_paths_CIR(S_t, SDE_params['kappa'], SDE_params['S_bar'], SDE_params['gamma'], dt, n_steps, n_paths)
             S_bar = SDE_params['S_bar']
 
         gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
         gen_model.eval()
 
         if use_Z :
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_t, S_bar, dt, n_steps, n_paths, actual_returns=Returns, Z_BM=Z)
         else :
-            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, actual_returns=Returns)
+            model_paths_one_step = gen_paths_from_GAN(gen_model, process, S_t, S_bar, dt, n_steps, n_paths, actual_returns=Returns)
         
         error_Weak_GAN[i] = np.abs(np.mean(Exact_solution[-1])-np.mean(model_paths_one_step[-1]))
         error_Strong_GAN[i] = np.mean(np.abs(Exact_solution[-1]-model_paths_one_step[-1]))
@@ -154,7 +157,7 @@ def weak_stong_error(config_name, process, S_0, SDE_params, dts, T, n_paths, use
     plt.savefig(f"Plots/Weak_Strong/Weak_Strong {config_name}")
     plt.show()
 
-
+#---------- Maybe to delete ----------#
 def supervised_vs_not_generator_map():
 
     dt = 1 # he uses 1
