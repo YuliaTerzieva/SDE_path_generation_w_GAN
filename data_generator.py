@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.stats as stat
 import torch
 import yaml
 import random
@@ -39,7 +40,10 @@ def CIR_sample(kappa, gamma, S_bar, dt, S_t, n_paths): # from book equation 9.30
     c = (gamma**2 * (1-np.exp(-kappa*dt))) / (4 * kappa)
     kappaBar = (4 * kappa * np.exp(-kappa*dt) * S_t) / (gamma**2 * (1 - np.exp(-kappa*dt)))
     sample = c * np.random.noncentral_chisquare(delta,kappaBar,n_paths)
-    return  sample
+
+    Z_sample = np.array([stat.norm.ppf(stat.ncx2.cdf(x, delta, kappaBar[counter], scale=c)) for counter, x in enumerate(sample)])
+
+    return  sample, Z_sample
 
 def gen_paths_CIR(S_0, kappa, S_bar, gamma, dt, n_steps, n_paths):  
     
@@ -62,7 +66,7 @@ def gen_paths_CIR(S_0, kappa, S_bar, gamma, dt, n_steps, n_paths):
                              + 0.25 * gamma**2 * (np.power(dW,2) - dt)
         S_M[step_inx+1, :] = np.maximum(S_M[step_inx+1, :], 0)
                              
-        Exact_solution[step_inx+1, :] = CIR_sample(kappa,gamma,S_bar, dt, Exact_solution[step_inx, :], n_paths)
+        Exact_solution[step_inx+1, :], Z[step_inx, :] = CIR_sample(kappa,gamma,S_bar, dt, Exact_solution[step_inx, :], n_paths)
 
         Return[step_inx+1, :] = (Exact_solution[step_inx+1, :] - S_bar ) / S_bar
 
@@ -190,7 +194,7 @@ if __name__ == '__main__':
         return configs[config_key]
 
     # Load the specific configuration
-    config_key = 'config_5'
+    config_key = 'config_6'
     config = load_config('parameters.yaml', config_key)
 
     # Access the variables
@@ -235,7 +239,6 @@ if __name__ == '__main__':
     # plt.legend()
     # plt.show()
 
-    model_paths_one_step = np.concatenate([model_paths_one_step[0:1], model_paths_one_step[2:]])
     plt.plot(Exact_solution[:-1], color = 'lightblue')
     plt.plot([], [], color = 'lightblue', label = "Exact")
     plt.plot(model_paths_one_step, linestyle='dashed', color = 'palevioletred')

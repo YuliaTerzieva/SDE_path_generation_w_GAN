@@ -33,33 +33,25 @@ torch.random.manual_seed(42)
 np.random.seed(42)
 
 ### We first train the networks ###
-print('\033[35m'+ f"I'm starting training of {config_name} with process {process} w/ parameters {SDE_params} \
-      \n the training is on {number_data_points} points, note using Z is {use_Z}" + '\033[30m')
-D_losses, G_losses = train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_data_points, \
-                                   epochs, batch_size, advancing_C, log_freq)
+# print('\033[35m'+ f"I'm starting training of {config_name} with process {process} w/ parameters {SDE_params} \
+#       \n the training is on {number_data_points} points, note using Z is {use_Z}" + '\033[30m')
+# D_losses, G_losses = train_network(config_name, process ,S_0, SDE_params, dts, T, use_Z, number_data_points, \
+#                                    epochs, batch_size, advancing_C, log_freq)
 
 gen_model = torch.load(f'Trained_Models/generator_{config_name}.pth')
 gen_model.eval()
 
-ECDF_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
+# ECDF_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
 
-torch.random.manual_seed(42)
-np.random.seed(42)
-ks_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
+# torch.random.manual_seed(42)
+# np.random.seed(42)
+# ks_plot(gen_model, config_name, process, S_0, SDE_params, use_Z)
 
-weak_stong_error(gen_model, config_name, process, S_0, SDE_params, dts, T, batch_size, use_Z)
-
-
-# Euler, Milstain, Exact_solution, Exact_solution_2, model_path, Z = dist_stock_step(gen_model, process, S_0, SDE_params, dt, 100, 1000, use_Z)
-
-# plt.hist(Exact_solution.flatten(), bins = 50, density=True)
-# plt.hist(model_path.cpu().detach().numpy().flatten(), bins = 50, density=True, alpha = 0.5)
-# plt.show()
+# weak_stong_error(gen_model, config_name, process, S_0, SDE_params, dts, T, batch_size, use_Z)
             
 # supervised_vs_not_generator_map()
 
-
 ### Note : run this only if you have a supervised model configuration ###
-# gen_model = torch.load(f'Trained_Models/discriminator_{config_name}.pth')
-# gen_model.eval()
-# discriminator_map(gen_model, config_name, S_0)
+d_model = torch.load(f'Trained_Models/discriminator_{config_name}.pth')
+d_model.eval()
+discriminator_map(d_model, config_name, process, S_0)

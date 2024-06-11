@@ -157,115 +157,124 @@ def weak_stong_error(gen_model, config_name, process, S_t, SDE_params, dts, T, n
     plt.savefig(f"Plots/Weak_Strong/Weak_Strong {config_name}")
     plt.show()
 
-#---------- Maybe to delete ----------#
 def supervised_vs_not_generator_map():
 
     dt = 1 # he uses 1
-    _, _, _, Z, Returns = gen_paths_GBM(0.1, 0.05, 0.2, dt, 2, 100)
+    S_0 = 0.1
+    _, _, _, Z, Returns = gen_paths_GBM(S_0, 0.05, 0.2, dt, 2, 100)
 
-    plt.scatter(Z[-2], Returns[-1], label = "Exact")
+    plt.scatter(Z[-2], Returns[-1], color='black', alpha=0.5, s=20, label="Exact")
 
     Z_test = torch.randn(100, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
-    S_t = torch.full((100,), 0.1).type(torch.FloatTensor).to(device='mps').view(1, -1)
+    S_t = torch.full((100,), S_0).type(torch.FloatTensor).to(device='mps').view(1, -1)
     dt_tensor = torch.full((100,), dt).type(torch.FloatTensor).to(device='mps').view(1, -1)
 
-    cGBM = torch.load(f'Trained_Models_old/generator_cGAN_GBM_multiple_dts.pth')
+    cGBM = torch.load(f'Trained_Models/generator_cGAN_GBM.pth') 
     cGBM.eval()
-    scGBM = torch.load(f'Trained_Models_old/generator_scGAN_GBM_multiple_dts.pth')
+    scGBM = torch.load(f'Trained_Models/generator_scGAN_GBM.pth')
     scGBM.eval()
 
-    plt.scatter(Z_test.cpu().detach().numpy(), cGBM.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "conditional")
-    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "supervised")
+    plt.scatter(Z_test.cpu().detach().numpy(), cGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'orage', marker = "*", s=20, label = "conditional")
     plt.legend()
     plt.xlabel("Z")
     plt.ylabel("Generator output")
     plt.title("GBM")
     plt.show()
 
-    _, _, _, Z, Returns = gen_paths_CIR(0.1, 0.1, 0.1, 0.1, dt, 2, 100)
-    plt.scatter(Z[-2], Returns[-1], label = "Exact")
-    cCIR = torch.load(f'Trained_Models_old/generator_cGAN_CIR_multiple_dts.pth')
+    _, _, _, Z, Returns = gen_paths_CIR(S_0, 0.1, 0.1, 0.1, dt, 2, 100)
+    plt.scatter(Z[-2], Returns[-1], color = 'black', alpha=0.5, label = "Exact")
+    cCIR = torch.load(f'Trained_Models/generator_cGAN_CIR_Feller.pth')
     cCIR.eval()
-    scCIR = torch.load(f'Trained_Models_old/generator_scGAN_CIR_multiple_dts.pth')
+    scCIR = torch.load(f'Trained_Models/generator_scGAN_CIR_Feller.pth')
     scCIR.eval()
 
-    plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(),  color = 'lightblue', marker = "*", s=20, label = "conditional")
 
-    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), label = "supervised")
+    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "conditional")
     plt.legend()
     plt.xlabel("Z")
     plt.ylabel("Generator output")
-    plt.title("CIR")
+    plt.title("CIR Feller satisfied")
     plt.show()
 
-def discriminator_map(gen_model, config_name, S_t, my_device = 'mps'):
-    points = 1_000
+    _, _, _, Z, Returns = gen_paths_CIR(S_0, 0.1, 0.1, 0.3, dt, 2, 100)
+    plt.scatter(Z[-2], Returns[-1], color = 'black', alpha=0.5, label = "Exact")
+    cCIR = torch.load(f'Trained_Models/generator_cGAN_CIR_no_Feller.pth')
+    cCIR.eval()
+    scCIR = torch.load(f'Trained_Models/generator_scGAN_CIR_no_Feller.pth')
+    scCIR.eval()
+
+    plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
+
+    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "conditional")
+    plt.legend()
+    plt.xlabel("Z")
+    plt.ylabel("Generator output")
+    plt.title("CIR Feller not satisfied")
+    plt.show()
+
+def discriminator_map(d_model, config_name, process, S_t, my_device = 'mps'):
+    
+    points = 1000
 
     dt = 1
     dt_torch = torch.full((points, ), dt).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
     S_t_torch = torch.full((points, ), S_t).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-
-    Z_torch = torch.randn(points, ).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
      
+    possible_Z =  torch.linspace(-3, 3, points).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
+    possible_returns = np.linspace(-1.5, 3, points)
     map = torch.zeros(points, points).type(torch.FloatTensor).to(device=torch.device('mps'))
-    returns = np.linspace(-1.5, 3, points)
-    for count, r in enumerate(returns):
-        r_t = torch.full((points, ), r).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-        map[count] = gen_model.forward(r_t, (S_t_torch, dt_torch, Z_torch)).view(1, -1)
+    for count, r in enumerate(possible_returns):
+        r_torch = torch.full((points, ), r).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
+        map[count] = d_model.forward(r_torch, (S_t_torch, dt_torch, possible_Z)).view(1, -1) if process == "CIR" else d_model.forward(r_torch, (dt_torch, possible_Z)).view(1, -1)
 
 
-    plt.imshow(map.cpu().detach().numpy(), extent=(-3.5, 3.5, -1.5, 3), origin='lower', aspect='auto', cmap='coolwarm')
+    plt.figure(figsize=(10, 6))
+    plt.imshow(map.cpu().detach().numpy(), extent=(-3, 3, -1.5, 3), origin='lower', aspect='auto', cmap='coolwarm')
     plt.colorbar(label='Model Output')
+    plt.title(config_name)
     plt.xlabel("Z")
-    plt.ylabel("Returns")
-    plt.legend()
-    plt.show()
+    plt.ylabel("Generator output")
 
-    # _, _, _, Z, Returns = gen_paths_GBM(1, 0.05, 0.2, 0.05, 2, 1000)
-    # print("->", Z[-2].min(), Z[-2].max())
-
-    # plt.scatter(Z[-2], Returns[-1], label = "Exact")
-
-
-    # # cGBM = torch.load(f'Trained_Models/generator_cGAN_GBM_single_dt.pth')
-    # # cGBM.eval()
-    # scGBM = torch.load(f'Trained_Models/generator_{config}.pth')
-    # scGBM.eval()
-
-    # # conditional_output = cGBM.forward(Z_test, (S_t, dt)).cpu().detach().numpy()
-    # supervised_output = scGBM.forward(Z_test, (S_t, dt)).cpu().detach().numpy()
-
-    # # plt.scatter(Z_test.cpu().detach().numpy(), conditional_output, label = "conditional")
-    # plt.scatter(Z_test.cpu().detach().numpy(), supervised_output, label = "supervised")
-    # plt.legend()
-    # # plt.xlabel("Z")
-    # # plt.ylabel("Generator output")
-    # plt.show()
-
-def log_returns(actual_log_returns, model, n_steps, n_paths, batch_size, c_dt, config_name, my_device = 'mps'):
-    """
-    actual_log_returns -> tensor 
-    model -> torch model
-    n_steps -> int
-    n_paths -> int
-    """
-    pred_Log_Return = np.zeros((n_steps, n_paths))
-    for i in range(n_steps):
-        c_previous = actual_log_returns[i].view(1, -1)
-        x_random = torch.randn(batch_size, 1).type(torch.FloatTensor).to(device=torch.device(my_device)).view(1, -1)
-        x_fake = model.forward(x_random, (c_previous, c_dt)).view(1, -1)
-        pred_Log_Return[i] = x_fake.cpu().detach().numpy()
-
-    plt.figure()
-    plt.hist(actual_log_returns.cpu().detach().numpy().flatten(), bins = 50, alpha = 0.8, density=True, color = 'lightblue', label="Real")
-    plt.hist(pred_Log_Return.flatten(), bins = 50, alpha = 0.5, density = True, color = 'palevioletred', label="Generated")
-    plt.legend()
-    plt.title(f"Log Returns {config_name}")
-    plt.savefig(f"Plots/Log Returns/Log Returns {config_name}")
-    plt.show()
-
-    plt.scatter(x_random.cpu().detach().numpy(), x_fake.cpu().detach().numpy())
-    plt.show()
-
+    if process == 'GBM':
+        _, _, _, Z, Returns = gen_paths_GBM(S_t, 0.05, 0.2, dt, 2, 100)
     
+        plt.scatter(Z[-2], Returns[-1], color='black', alpha=0.5, s=20, label="Exact")
 
+        Z_test = torch.randn(100, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+        S_t = torch.full((100,), S_t).type(torch.FloatTensor).to(device='mps').view(1, -1)
+        dt_tensor = torch.full((100,), dt).type(torch.FloatTensor).to(device='mps').view(1, -1)
+
+        cGBM = torch.load(f'Trained_Models/generator_cGAN_GBM.pth') 
+        cGBM.eval()
+        scGBM = torch.load(f'Trained_Models/generator_scGAN_GBM.pth')
+        scGBM.eval()
+
+        plt.scatter(Z_test.cpu().detach().numpy(), cGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
+        plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "supervised")
+        plt.legend()
+        plt.xlabel("Z")
+        plt.ylabel("Generator output")
+    
+    else :
+        _, _, _, Z, Returns = gen_paths_CIR(S_t, 0.1, 0.1, 0.1, dt, 2, 100)
+        plt.scatter(Z[-2], Returns[-1], color = 'black', alpha=0.5, s=20, label = "Exact")
+
+        Z_test = torch.randn(100, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
+        S_t = torch.full((100,), S_t).type(torch.FloatTensor).to(device='mps').view(1, -1)
+        dt_tensor = torch.full((100,), dt).type(torch.FloatTensor).to(device='mps').view(1, -1)
+
+        cCIR = torch.load(f'Trained_Models/generator_cGAN_CIR_no_Feller.pth')
+        cCIR.eval()
+        scCIR = torch.load(f'Trained_Models/generator_scGAN_CIR_no_Feller.pth')
+        scCIR.eval()
+
+        plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
+
+        plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "supervised")
+        plt.legend()
+        plt.xlabel("Z")
+        plt.ylabel("Generator output")
+        
+    plt.show()
