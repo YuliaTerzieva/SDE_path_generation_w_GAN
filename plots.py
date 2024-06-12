@@ -175,7 +175,7 @@ def supervised_vs_not_generator_map():
     scGBM.eval()
 
     plt.scatter(Z_test.cpu().detach().numpy(), cGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
-    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'orage', marker = "*", s=20, label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "conditional")
     plt.legend()
     plt.xlabel("Z")
     plt.ylabel("Generator output")
@@ -258,16 +258,16 @@ def discriminator_map(d_model, config_name, process, S_t, my_device = 'mps'):
         plt.ylabel("Generator output")
     
     else :
-        _, _, _, Z, Returns = gen_paths_CIR(S_t, 0.1, 0.1, 0.1, dt, 2, 100)
+        _, _, _, Z, Returns = gen_paths_CIR(S_t, 0.1, 0.1, 0.3, dt, 2, 100) # Note if you do Feller condition change the gamma to 0.1
         plt.scatter(Z[-2], Returns[-1], color = 'black', alpha=0.5, s=20, label = "Exact")
 
         Z_test = torch.randn(100, 1).type(torch.FloatTensor).to(device=torch.device('mps')).view(1, -1)
         S_t = torch.full((100,), S_t).type(torch.FloatTensor).to(device='mps').view(1, -1)
         dt_tensor = torch.full((100,), dt).type(torch.FloatTensor).to(device='mps').view(1, -1)
 
-        cCIR = torch.load(f'Trained_Models/generator_cGAN_CIR_no_Feller.pth')
+        cCIR = torch.load(f'Trained_Models/generator_cGAN_CIR_no_Feller.pth')# Note if you do Feller condition change the name of the file
         cCIR.eval()
-        scCIR = torch.load(f'Trained_Models/generator_scGAN_CIR_no_Feller.pth')
+        scCIR = torch.load(f'Trained_Models/generator_scGAN_CIR_no_Feller.pth')# Note if you do Feller condition change the name of the file
         scCIR.eval()
 
         plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
