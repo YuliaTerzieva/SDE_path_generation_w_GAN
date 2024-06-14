@@ -202,7 +202,7 @@ if __name__ == '__main__':
         return configs[config_key]
 
     # Load the specific configuration
-    config_key = 'config_6'
+    config_key = 'config_2'
     config = load_config('parameters.yaml', config_key)
 
     # Access the variables
