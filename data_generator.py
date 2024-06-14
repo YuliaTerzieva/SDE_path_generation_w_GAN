@@ -187,6 +187,14 @@ def gen_paths_from_GAN(gen_model, process, S_0, S_bar, dt, n_steps, n_paths, act
 
 if __name__ == '__main__':
 
+    # S_E, S_M, Exact_solution, Z, Log_Return = gen_paths_GBM(1, 0.05, 0.2, 0.1, 100, 1)
+    # fig, ax = plt.subplots(2, 1)
+    # ax[0].plot(Z, label = "BM")
+    # ax[1].plot(Exact_solution, label = "Exact solution")
+    # ax[0].set_title("BM")
+    # ax[1].set_title("Exact solution")
+    # plt.show()
+
     # Loading parameters
     def load_config(filepath, config_key):
         with open(filepath, 'r') as file:

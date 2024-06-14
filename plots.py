@@ -175,7 +175,7 @@ def supervised_vs_not_generator_map():
     scGBM.eval()
 
     plt.scatter(Z_test.cpu().detach().numpy(), cGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
-    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), scGBM.forward(Z_test, [dt_tensor]).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "supervised")
     plt.legend()
     plt.xlabel("Z")
     plt.ylabel("Generator output")
@@ -191,7 +191,7 @@ def supervised_vs_not_generator_map():
 
     plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(),  color = 'lightblue', marker = "*", s=20, label = "conditional")
 
-    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "supervised")
     plt.legend()
     plt.xlabel("Z")
     plt.ylabel("Generator output")
@@ -207,7 +207,7 @@ def supervised_vs_not_generator_map():
 
     plt.scatter(Z_test.cpu().detach().numpy(), cCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'lightblue', marker = "*", s=20, label = "conditional")
 
-    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "conditional")
+    plt.scatter(Z_test.cpu().detach().numpy(), scCIR.forward(Z_test, (S_t, dt_tensor)).cpu().detach().numpy(), color = 'orange', marker = "*", s=20, label = "supervised")
     plt.legend()
     plt.xlabel("Z")
     plt.ylabel("Generator output")

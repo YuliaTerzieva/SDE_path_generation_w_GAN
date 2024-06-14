@@ -49,7 +49,7 @@ gen_model.eval()
 
 # weak_stong_error(gen_model, config_name, process, S_0, SDE_params, dts, T, batch_size, use_Z)
             
-# supervised_vs_not_generator_map()
+supervised_vs_not_generator_map()
 
 ### Note : run this only if you have a supervised model configuration ###
 d_model = torch.load(f'Trained_Models/discriminator_{config_name}.pth')
