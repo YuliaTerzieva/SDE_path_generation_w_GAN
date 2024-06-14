@@ -14,7 +14,14 @@ Everything is called and runs from [main.py](https://github.com/YuliaTerzieva/SD
 If you'd like to add another configuration with different parameters, add that configuration to parameters.yaml and load the configuration in main.py. 
 That would take care of the train and producing all the plots
 
-The training function that gets called in the  main can be found in (training.py)[https://github.com/YuliaTerzieva/SDE_path_generation_w_GAN/blob/main/training.py]
+The training function that gets called in the  main can be found in [training.py](https://github.com/YuliaTerzieva/SDE_path_generation_w_GAN/blob/main/training.py)
 
 In that function, the training data is being generated and used. All the data generation including the making of the training data, 
-the making of SDE paths and the transformation between $S_t \rightarrow R_t \rightarrow S_t$ isorganised in (data_generation.py)[https://github.com/YuliaTerzieva/SDE_path_generation_w_GAN/blob/main/data_generator.py]. 
+the making of SDE paths and the transformation between $S_t \rightarrow R_t \rightarrow S_t$ is organised in [data_generation.py](https://github.com/YuliaTerzieva/SDE_path_generation_w_GAN/blob/main/data_generator.py). 
+
+All the plots are saved in a folder organized by type of plot. All the names follow the naming convention "Plots\**type of plot**\**type of plot**_gan type_SDE type", 
+for example "Plots/ECDF/ECDF_cGAN_CIR_no_Feller.png" is ECDF plot of the conditional GAN with CIR SDE with Feller condition not satisfied. 
+
+All the networks are saved in Trained_Models are can be loaded as shown in the main.py. 
+
+Lastly, the presentation I gave on the project is attached [here](https://github.com/YuliaTerzieva/SDE_path_generation_w_GAN/blob/main/Presentation.pdf)
