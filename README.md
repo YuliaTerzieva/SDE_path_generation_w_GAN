@@ -25,3 +25,5 @@ for example "Plots/ECDF/ECDF_cGAN_CIR_no_Feller.png" is ECDF plot of the conditi
 All the networks are saved in Trained_Models are can be loaded as shown in the main.py. 
 
 Lastly, the presentation I gave on the project is attached [here](https://github.com/YuliaTerzieva/SDE_path_generation_w_GAN/blob/main/Presentation.pdf)
+
+_Note : there is an error in the path generation of the CIR Euler and Milstein - currently they use Z from normal distribution, but they should use the BM calculated from the exact solution_
